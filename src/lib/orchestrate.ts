@@ -15,6 +15,7 @@ import Anthropic from '@anthropic-ai/sdk';
 
 import {
   COMPARISON_OPS,
+  PRIMITIVE_OPS,
   DENOMINATORS,
   FIELD_NAMES,
   MAX_PIPELINE_STEPS,
@@ -36,98 +37,68 @@ const MAX_TOKENS = 1024;
 
 const fieldEnum = { type: 'string' as const, enum: [...FIELD_NAMES] };
 
+/**
+ * One loose step object rather than a discriminated union.
+ *
+ * The API rejects `oneOf` in a tool's input_schema, so the shape cannot encode
+ * "if op is filter then field and comparison are required". That constraint
+ * lives in the prompt and, decisively, in `validate.ts`: a step with the wrong
+ * parameters for its op fails the Zod discriminated union before anything runs.
+ * The schema's job here is to bound the vocabulary — which ops and which field
+ * names exist — and it still does that exactly.
+ */
 const STEP_SCHEMA = {
-  oneOf: [
-    {
-      type: 'object',
-      properties: {
-        op: { const: 'filter' },
-        field: fieldEnum,
-        comparison: { type: 'string', enum: [...COMPARISON_OPS] },
-        value: { type: 'number' },
-      },
-      required: ['op', 'field', 'comparison', 'value'],
-      additionalProperties: false,
-    },
-    {
-      type: 'object',
-      properties: { op: { const: 'flood_exposure' }, min_pct: { type: 'number', minimum: 0, maximum: 1 } },
-      required: ['op', 'min_pct'],
-      additionalProperties: false,
-    },
-    {
-      type: 'object',
-      properties: {
-        op: { const: 'resource_gap' },
-        poi_type: { type: 'string', enum: [...POI_TYPES] },
-        max_distance_m: { type: 'number', exclusiveMinimum: 0, maximum: 50000 },
-      },
-      required: ['op', 'poi_type', 'max_distance_m'],
-      additionalProperties: false,
-    },
-    {
-      type: 'object',
-      properties: {
-        op: { const: 'normalize' },
-        measure: fieldEnum,
-        by: { type: 'string', enum: [...DENOMINATORS] },
-      },
-      required: ['op', 'measure', 'by'],
-      additionalProperties: false,
-    },
-    {
-      type: 'object',
-      properties: {
-        op: { const: 'rank' },
-        measure: fieldEnum,
-        dir: { type: 'string', enum: ['asc', 'desc'] },
-        n: { type: 'integer', minimum: 1, maximum: 200 },
-      },
-      required: ['op', 'measure', 'dir', 'n'],
-      additionalProperties: false,
-    },
-    {
-      type: 'object',
-      properties: {
-        op: { const: 'compare' },
-        measure: fieldEnum,
-        split_on: fieldEnum,
-        threshold: { type: 'number' },
-      },
-      required: ['op', 'measure', 'split_on', 'threshold'],
-      additionalProperties: false,
-    },
-  ],
+  type: 'object' as const,
+  properties: {
+    op: { type: 'string', enum: [...PRIMITIVE_OPS], description: 'Which operation this step performs.' },
+    field: { ...fieldEnum, description: 'filter: the field to compare.' },
+    comparison: { type: 'string', enum: [...COMPARISON_OPS], description: 'filter: the comparison.' },
+    value: { type: 'number', description: 'filter: the threshold, in the field\'s own unit.' },
+    min_pct: { type: 'number', minimum: 0, maximum: 1, description: 'flood_exposure: minimum share of area, 0-1.' },
+    poi_type: { type: 'string', enum: [...POI_TYPES], description: 'resource_gap: which kind of place.' },
+    max_distance_m: { type: 'number', description: 'resource_gap: keep block groups farther than this, in metres.' },
+    measure: { ...fieldEnum, description: 'normalize, rank, compare: the field being measured.' },
+    by: { type: 'string', enum: [...DENOMINATORS], description: 'normalize: the denominator.' },
+    dir: { type: 'string', enum: ['asc', 'desc'], description: 'rank: sort direction.' },
+    n: { type: 'integer', minimum: 1, maximum: 200, description: 'rank: how many to keep.' },
+    split_on: { ...fieldEnum, description: 'compare: the field the two groups are split on.' },
+    threshold: { type: 'number', description: 'compare: the split point, in split_on\'s unit.' },
+  },
+  required: ['op'],
+  additionalProperties: false,
 };
 
-const TOOL = {
-  name: 'answer',
-  description:
-    'Return an analysis plan for the question, or declare it unsupported. ' +
-    'Declaring a question unsupported is a correct answer, not a failure.',
+/**
+ * Two tools, not one with a union. Declining is a first-class outcome, so it
+ * gets its own tool rather than a variant the model has to notice it may pick.
+ */
+const ANALYSE_TOOL = {
+  name: 'analyse',
+  description: 'Run an analysis over Harris County block groups and draw the result.',
   input_schema: {
     type: 'object' as const,
-    oneOf: [
-      {
-        type: 'object',
-        properties: {
-          pipeline: { type: 'array', items: STEP_SCHEMA, minItems: 1, maxItems: MAX_PIPELINE_STEPS },
-          render: { type: 'string', enum: ['choropleth', 'points', 'comparison'] },
-          color_by: fieldEnum,
-          title: { type: 'string', maxLength: 120 },
-        },
-        required: ['pipeline', 'render', 'title'],
-      },
-      {
-        type: 'object',
-        properties: {
-          unsupported: { const: true },
-          reason: { type: 'string', maxLength: 300 },
-          suggestion: { type: 'string', maxLength: 300 },
-        },
-        required: ['unsupported', 'reason', 'suggestion'],
-      },
-    ],
+    properties: {
+      pipeline: { type: 'array', items: STEP_SCHEMA, minItems: 1, maxItems: MAX_PIPELINE_STEPS },
+      render: { type: 'string', enum: ['choropleth', 'points', 'comparison'] },
+      color_by: { ...fieldEnum, description: 'Which field the map shades by.' },
+      title: { type: 'string', maxLength: 120, description: 'A short title for the result.' },
+    },
+    required: ['pipeline', 'render', 'title'],
+  },
+};
+
+const DECLINE_TOOL = {
+  name: 'decline',
+  description:
+    'Say that the question cannot be answered with this dataset. This is a correct ' +
+    'answer, not a failure — prefer it over an approximation presented as the answer.',
+  input_schema: {
+    type: 'object' as const,
+    properties: {
+      reason: { type: 'string', maxLength: 300, description: 'Why this dataset cannot answer it.' },
+      suggestion: { type: 'string', maxLength: 300, description: 'A related question that does work.' },
+    },
+    required: ['reason', 'suggestion'],
   },
 };
 
@@ -221,8 +192,8 @@ export async function planFromQuestion(question: string): Promise<unknown> {
         model: MODEL,
         max_tokens: MAX_TOKENS,
         system: systemPrompt(),
-        tools: [TOOL],
-        tool_choice: { type: 'tool', name: TOOL.name },
+        tools: [ANALYSE_TOOL, DECLINE_TOOL],
+        tool_choice: { type: 'any' },
         messages,
       });
     } catch (err) {
@@ -233,11 +204,21 @@ export async function planFromQuestion(question: string): Promise<unknown> {
     }
 
     const block = response.content.find((c) => c.type === 'tool_use');
-    if (block && block.type === 'tool_use') return block.input;
+    if (block && block.type === 'tool_use') {
+      if (block.name === DECLINE_TOOL.name) {
+        const d = block.input as { reason?: string; suggestion?: string };
+        return {
+          unsupported: true,
+          reason: d.reason ?? 'This dataset cannot answer that question.',
+          suggestion: d.suggestion ?? 'Try one of the preset questions.',
+        };
+      }
+      return block.input;
+    }
 
     messages.push(
       { role: 'assistant', content: response.content },
-      { role: 'user', content: 'Use the answer tool. Return the unsupported form if the question does not fit.' },
+      { role: 'user', content: 'Call analyse, or call decline if the question does not fit.' },
     );
   }
 
