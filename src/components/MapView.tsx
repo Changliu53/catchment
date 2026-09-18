@@ -254,13 +254,23 @@ export default function MapView({ features, colorBy, breaks, onHover }: Props) {
       paint.current(false);
     };
 
-    // `styledata` fires for the first style and for every later one, so this
-    // single hook covers both the initial build and any fallback swap. `load`
-    // may never fire at all if the tab starts hidden.
-    m.on('styledata', () => {
-      if (m.isStyleLoaded()) build();
-    });
-    if (m.isStyleLoaded()) build();
+    // Gating this on isStyleLoaded() was the bug that kept the map empty.
+    // isStyleLoaded() means the style AND every source's metadata is resolved;
+    // a vector basemap with a slow TileJSON can leave it false indefinitely
+    // while rendering perfectly. Adding a source only needs the style document
+    // parsed, which is what styledata signals. build() is idempotent, and if a
+    // call still lands too early MapLibre throws and the next styledata
+    // retries — so the layers arrive at the first moment they legally can.
+    const tryBuild = () => {
+      try {
+        build();
+      } catch {
+        /* style not parsed yet; the next styledata event will retry */
+      }
+    };
+    m.on('styledata', tryBuild);
+    m.on('load', tryBuild);
+    tryBuild();
 
     // Count only time the page was actually visible: rAF is paused in a
     // background tab, so a plain timer demotes every background-opened page to
