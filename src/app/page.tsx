@@ -286,7 +286,11 @@ export default function Home() {
              cursor must not swallow the hover it is describing, but a panel a
              touch user opened has to be dismissible. */
           <div
-            className={`absolute bottom-3 left-3 right-3 rounded-lg bg-white/95 p-3 text-xs shadow-lg ring-1 ring-slate-200 sm:right-auto sm:max-w-[17rem] ${
+            // bottom-9 on small screens clears MapLibre's attribution bar,
+            // which spans the full width there and was covering the last row's
+            // value. The height cap keeps the panel inside the map on a short
+            // phone map rather than letting it grow past the top.
+            className={`absolute bottom-9 left-3 right-3 max-h-[70%] overflow-y-auto rounded-lg bg-white/95 p-3 text-xs shadow-lg ring-1 ring-slate-200 sm:right-auto sm:max-w-[17rem] lg:bottom-4 ${
               selected ? 'pointer-events-auto' : 'pointer-events-none'
             }`}
           >

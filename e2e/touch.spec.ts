@@ -84,6 +84,43 @@ test('tapping a block group shows its numbers', async ({ page }) => {
   await expect(details).toBeVisible();
   await expect(details).toContainText('Median household income');
   await expect(details).toContainText('Distance to nearest supermarket');
+
+  // And all of it has to be readable. On the live preview the panel ran 22px
+  // under MapLibre's attribution bar, which spans the full width on a phone,
+  // so the last row's value sat behind it.
+  const fit = await page.evaluate(() => {
+    const panel = [...document.querySelectorAll('div')]
+      .find((d) => d.textContent?.startsWith('Block group '))!
+      .getBoundingClientRect();
+    const map = document
+      .querySelector('[aria-label="Map of analysis results"]')!
+      .getBoundingClientRect();
+    const attribution = document.querySelector('.maplibregl-ctrl-attrib')?.getBoundingClientRect();
+    return {
+      // A control with no attribution text has a zero-sized box at the
+      // origin; comparing against that would always 'overlap'.
+      attributionVisible: !!attribution && attribution.height > 0,
+      overlapsAttribution:
+        attribution && attribution.height > 0 ? panel.bottom > attribution.top + 1 : false,
+      escapesMap: panel.top < map.top - 1 || panel.bottom > map.bottom + 1,
+      geometry: {
+        panel: [Math.round(panel.top), Math.round(panel.bottom)],
+        map: [Math.round(map.top), Math.round(map.bottom)],
+        attribution: attribution
+          ? [Math.round(attribution.top), Math.round(attribution.bottom)]
+          : null,
+      },
+    };
+  });
+  // If this is false the overlap check below is vacuous, so assert it.
+  expect(fit.attributionVisible, 'the fixture style rendered no attribution to test against').toBe(
+    true,
+  );
+  expect(
+    fit.overlapsAttribution,
+    `the detail panel sits under the attribution bar: ${JSON.stringify(fit.geometry)}`,
+  ).toBe(false);
+  expect(fit.escapesMap, 'the detail panel spills outside the map').toBe(false);
 });
 
 test('a tapped block group can be dismissed', async ({ page }) => {
