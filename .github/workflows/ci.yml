@@ -1,0 +1,58 @@
+# Vercel builds on every push, but a build is not a test: `next build` runs
+# TypeScript and stops there. Everything that actually guards behaviour — the
+# executor's unit tests, the MapLibre packaging assertions, the end-to-end map
+# regression — runs here, so a commit that breaks the map is red before anyone
+# opens the deployment.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A new push supersedes the run in flight; there is no reason to finish testing
+# a commit nobody will look at again.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Types
+        run: npm run typecheck
+
+      - name: Unit
+        run: npm test
+
+      # Only Chromium, and only its dependencies. The suite asserts about
+      # WebGL rendering and worker packaging, neither of which differs
+      # usefully across engines; three browsers would triple the minutes to
+      # test the same thing.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # The config builds the app and serves it: the regression this guards was
+      # a bundling fault, so a dev server would not reproduce it.
+      - name: End-to-end
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
