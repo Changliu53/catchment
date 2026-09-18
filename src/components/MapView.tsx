@@ -34,6 +34,39 @@ import type { Map as MapLibreMap, MapLayerMouseEvent } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import { FILL_OPACITY, RAMP } from '@/lib/ramp';
+import COUNTY from '@/lib/harris-county.json';
+
+/**
+ * Everything outside Harris County, as one polygon with the county punched out
+ * of it. Drawn in translucent white, it turns the basemap's surroundings into
+ * context and makes the study area unmistakable.
+ *
+ * This matters more than it sounds. The analysis covers exactly one county,
+ * but the basemap runs to Galveston and beyond, so an empty stretch of map was
+ * ambiguous: no block group matched here, or this was never in the dataset?
+ * The mask answers that without a word of explanation.
+ *
+ * The outer ring stops short of the poles because Web Mercator does not reach
+ * them; ±85° is the projection's own limit.
+ */
+const WORLD_RING: [number, number][] = [
+  [-180, -85],
+  [180, -85],
+  [180, 85],
+  [-180, 85],
+  [-180, -85],
+];
+
+const countyRings = (COUNTY.geometry as { type: string; coordinates: number[][][] }).coordinates;
+
+const OUTSIDE_COUNTY = {
+  type: 'Feature' as const,
+  properties: {},
+  geometry: {
+    type: 'Polygon' as const,
+    coordinates: [WORLD_RING, ...countyRings],
+  },
+};
 
 /**
  * Basemap, with a fallback.
@@ -201,6 +234,25 @@ export default function MapView({ features, colorBy, breaks, onHover }: Props) {
 
     const build = () => {
       if (m.getSource('results')) return;
+
+      // The county frame goes down first so every results layer sits on top of
+      // it. Its data never changes, so unlike the results sources it is filled
+      // here and never touched again.
+      m.addSource('county', { type: 'geojson', data: OUTSIDE_COUNTY });
+      m.addSource('county-line', { type: 'geojson', data: COUNTY as never });
+
+      m.addLayer({
+        id: 'county-mask',
+        type: 'fill',
+        source: 'county',
+        paint: { 'fill-color': '#f8fafc', 'fill-opacity': 0.6 },
+      });
+      m.addLayer({
+        id: 'county-outline',
+        type: 'line',
+        source: 'county-line',
+        paint: { 'line-color': '#64748b', 'line-width': 1.25, 'line-opacity': 0.9 },
+      });
 
       // promoteId lifts geoid into the feature id, which feature-state keys on.
       m.addSource('results', {
