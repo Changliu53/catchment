@@ -15,7 +15,7 @@ import {
   MAX_PIPELINE_STEPS,
   POI_TYPES,
   type FieldName,
-} from './schema.js';
+} from './schema';
 
 const fieldName = z.enum(FIELD_NAMES as [FieldName, ...FieldName[]]);
 

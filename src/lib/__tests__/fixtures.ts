@@ -1,4 +1,4 @@
-import type { BlockGroup } from '../primitives.js';
+import type { BlockGroup } from '../primitives';
 
 /**
  * Synthetic block groups with hand-computable properties, so assertions state
@@ -16,6 +16,7 @@ export const FIXTURE_ROWS: BlockGroup[] = [
     geoid: 'A',
     pop: 1000,
     median_income: 40_000,
+    income_topcoded: false,
     area_m2: 1_000_000,
     flood_pct: 0.9,
     flood_pct_500: 0.95,
@@ -27,6 +28,7 @@ export const FIXTURE_ROWS: BlockGroup[] = [
     geoid: 'B',
     pop: 2000,
     median_income: 80_000,
+    income_topcoded: false,
     area_m2: 1_000_000,
     flood_pct: 0.6,
     flood_pct_500: 0.65,
@@ -38,6 +40,7 @@ export const FIXTURE_ROWS: BlockGroup[] = [
     geoid: 'C',
     pop: 500,
     median_income: 25_000,
+    income_topcoded: false,
     area_m2: 500_000,
     flood_pct: 0.1,
     flood_pct_500: 0.15,
@@ -49,6 +52,7 @@ export const FIXTURE_ROWS: BlockGroup[] = [
     geoid: 'D',
     pop: 4000,
     median_income: 120_000,
+    income_topcoded: false,
     area_m2: 500_000,
     flood_pct: 0,
     flood_pct_500: 0.05,
@@ -60,6 +64,7 @@ export const FIXTURE_ROWS: BlockGroup[] = [
     geoid: 'E',
     pop: 800,
     median_income: null,
+    income_topcoded: false,
     area_m2: 800_000,
     flood_pct: 0.75,
     flood_pct_500: 0.80,

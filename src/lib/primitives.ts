@@ -6,14 +6,15 @@
  * validation, which is checked before anything here runs.
  */
 
-import { FIELDS, type FieldName } from './schema.js';
-import type { Plan, Step } from './validate.js';
+import { FIELDS, type FieldName } from './schema';
+import type { Plan, Step } from './validate';
 
 /** One census block group with its precomputed attributes. */
 export interface BlockGroup {
   geoid: string;
   pop: number;
   median_income: number | null;
+  income_topcoded: boolean;
   area_m2: number;
   flood_pct: number;
   flood_pct_500: number;

@@ -21,8 +21,6 @@ import os
 import sys
 from pathlib import Path
 
-import psycopg
-
 CSV = Path(__file__).resolve().parent.parent / "build" / "block_groups.csv.gz"
 
 COLUMNS = (
@@ -77,10 +75,47 @@ CHECKS = [
 ]
 
 
+def check_dsn(dsn: str) -> str | None:
+    """Catch the mistakes that otherwise surface as an opaque DNS error.
+
+    A DSN copied from documentation rather than the console fails deep inside
+    socket resolution with 'label empty or too long', which says nothing about
+    the actual problem.
+    """
+    if "..." in dsn:
+        return "it still contains '...', so it is an example rather than your connection string"
+    if not dsn.startswith(("postgresql://", "postgres://")):
+        return "it does not start with postgresql://"
+    if "@" not in dsn:
+        return "it has no user:password@host section"
+    host = dsn.split("@", 1)[1].split("/", 1)[0].split(":", 1)[0]
+    if not host or ".." in host or host.startswith(".") or host.endswith("."):
+        return f"the hostname looks malformed: {host!r}"
+    if "XXXX" in dsn or "your-" in dsn:
+        return "it still contains placeholder text"
+    return None
+
+
 def main() -> int:
     dsn = os.environ.get("DATABASE_URL")
     if not dsn:
         print("DATABASE_URL is not set. Copy it from the Neon console.", file=sys.stderr)
+        return 1
+
+    problem = check_dsn(dsn)
+    if problem:
+        print(f"DATABASE_URL looks wrong: {problem}.", file=sys.stderr)
+        print(
+            "Copy the full string from the Neon console "
+            "(Dashboard -> Connection string) rather than typing it.",
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        import psycopg
+    except ModuleNotFoundError:
+        print('psycopg is not installed. Run: pip install "psycopg[binary]"', file=sys.stderr)
         return 1
     if not CSV.exists():
         print(f"missing {CSV} — run pipeline/analyze.py first", file=sys.stderr)
