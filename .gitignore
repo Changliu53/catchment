@@ -1,0 +1,10 @@
+node_modules/
+.next/
+.env
+.env.local
+raw/
+build/blockgroups.geojson
+build/blockgroups_analyzed.geojson
+__pycache__/
+*.pyc
+_to_delete/
