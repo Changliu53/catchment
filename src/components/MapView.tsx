@@ -15,6 +15,8 @@ import * as maplibregl from 'maplibre-gl';
 import type { Map as MapLibreMap, MapLayerMouseEvent } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
+import { FILL_OPACITY, RAMP } from '@/lib/ramp';
+
 /**
  * Basemap, with a fallback.
  *
@@ -51,7 +53,6 @@ const STYLE_TIMEOUT_MS = 12_000;
 
 const HARRIS_CENTER: [number, number] = [-95.44, 29.82];
 
-const RAMP = ['#dbeafe', '#bfdbfe', '#93c5fd', '#60a5fa', '#3b82f6', '#1d4ed8'];
 
 export interface Feature {
   type: 'Feature';
@@ -62,25 +63,17 @@ export interface Feature {
 interface Props {
   features: Feature[];
   colorBy: string | null;
+  /** Class breaks, computed once by the page so the legend and the map agree. */
+  breaks: number[];
   onHover: (props: Record<string, number | string | boolean | null> | null) => void;
 }
 
-/** Quantile breaks, so a skewed distribution still shows structure. */
-function breaks(values: number[], n = RAMP.length - 1): number[] {
-  const clean = values.filter(Number.isFinite).sort((a, b) => a - b);
-  if (clean.length === 0) return [];
-  const out: number[] = [];
-  for (let i = 1; i <= n; i++) {
-    const v = clean[Math.floor((clean.length - 1) * (i / (n + 1)))];
-    if (v !== undefined && (out.length === 0 || v > out[out.length - 1]!)) out.push(v);
-  }
-  return out;
-}
 
-export default function MapView({ features, colorBy, onHover }: Props) {
+export default function MapView({ features, colorBy, breaks, onHover }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
   const ready = useRef(false);
+  const hovered = useRef<string | null>(null);
 
   useEffect(() => {
     if (!container.current || map.current) return;
@@ -100,26 +93,50 @@ export default function MapView({ features, colorBy, onHover }: Props) {
 
     const addLayers = () => {
       if (m.getSource('results')) return; // idempotent
-      m.addSource('results', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      // promoteId lifts geoid into the feature id, which is what feature-state
+      // keys on. Without it the hovered polygon cannot be styled at all.
+      m.addSource('results', {
+        type: 'geojson',
+        promoteId: 'geoid',
+        data: { type: 'FeatureCollection', features: [] },
+      });
       m.addLayer({
         id: 'results-fill',
         type: 'fill',
         source: 'results',
-        paint: { 'fill-color': RAMP[2]!, 'fill-opacity': 0.75 },
+        paint: { 'fill-color': RAMP[0]!, 'fill-opacity': FILL_OPACITY },
       });
       m.addLayer({
         id: 'results-line',
         type: 'line',
         source: 'results',
-        paint: { 'line-color': '#1e293b', 'line-width': 0.4, 'line-opacity': 0.5 },
+        paint: {
+          // The hovered polygon gets a white halo rather than a darker edge:
+          // against six shades of blue, lighter reads as "picked out" at every
+          // step of the ramp, where a darker line disappears into the dark end.
+          'line-color': ['case', ['boolean', ['feature-state', 'hover'], false], '#ffffff', '#1e293b'],
+          'line-width': ['case', ['boolean', ['feature-state', 'hover'], false], 2.5, 0.4],
+          'line-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 1, 0.45],
+        },
       });
 
       m.on('mousemove', 'results-fill', (e: MapLayerMouseEvent) => {
+        const f = e.features?.[0];
+        if (!f) return;
         m.getCanvas().style.cursor = 'pointer';
-        onHover(e.features?.[0]?.properties ?? null);
+        if (hovered.current !== null && hovered.current !== f.id) {
+          m.setFeatureState({ source: 'results', id: hovered.current }, { hover: false });
+        }
+        hovered.current = f.id as string;
+        m.setFeatureState({ source: 'results', id: f.id as string }, { hover: true });
+        onHover(f.properties ?? null);
       });
       m.on('mouseleave', 'results-fill', () => {
         m.getCanvas().style.cursor = '';
+        if (hovered.current !== null) {
+          m.setFeatureState({ source: 'results', id: hovered.current }, { hover: false });
+          hovered.current = null;
+        }
         onHover(null);
       });
 
@@ -173,16 +190,12 @@ export default function MapView({ features, colorBy, onHover }: Props) {
 
       src.setData({ type: 'FeatureCollection', features: features as never[] });
 
-      if (colorBy && features.length > 0) {
-        const values = features.map((f) => Number(f.properties[colorBy])).filter(Number.isFinite);
-        const stops = breaks(values);
-        if (stops.length > 0) {
-          const expr: unknown[] = ['step', ['to-number', ['get', colorBy], 0], RAMP[0]!];
-          stops.forEach((s, i) => expr.push(s, RAMP[Math.min(i + 1, RAMP.length - 1)]!));
-          m.setPaintProperty('results-fill', 'fill-color', expr as never);
-        }
+      if (colorBy && breaks.length > 0) {
+        const expr: unknown[] = ['step', ['to-number', ['get', colorBy], 0], RAMP[0]!];
+        breaks.forEach((b, i) => expr.push(b, RAMP[Math.min(i + 1, RAMP.length - 1)]!));
+        m.setPaintProperty('results-fill', 'fill-color', expr as never);
       } else {
-        m.setPaintProperty('results-fill', 'fill-color', RAMP[3]!);
+        m.setPaintProperty('results-fill', 'fill-color', RAMP[1]!);
       }
 
       if (features.length > 0) {
@@ -200,7 +213,7 @@ export default function MapView({ features, colorBy, onHover }: Props) {
 
     if (ready.current) apply();
     else m.on('load', apply);
-  }, [features, colorBy]);
+  }, [features, colorBy, breaks]);
 
   return <div ref={container} className="h-full w-full" aria-label="Map of analysis results" />;
 }
