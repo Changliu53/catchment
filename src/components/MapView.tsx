@@ -108,6 +108,13 @@ interface Props {
   /** Class breaks, computed by the page so the legend and the map agree. */
   breaks: number[];
   onHover: (props: Record<string, number | string | boolean | null> | null) => void;
+  /**
+   * A block group the reader picked, rather than passed over. Touch devices
+   * have no hover, so without this every per-block-group number — population,
+   * income, flood share, distances — is unreachable on a phone and the map is
+   * decoration.
+   */
+  onSelect: (props: Record<string, number | string | boolean | null> | null) => void;
 }
 
 /**
@@ -134,7 +141,7 @@ function centroidOf(geometry: unknown): [number, number] | null {
   return n === 0 ? null : [x / n, y / n];
 }
 
-export default function MapView({ features, colorBy, breaks, onHover }: Props) {
+export default function MapView({ features, colorBy, breaks, onHover, onSelect }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
   const hovered = useRef<string | null>(null);
@@ -315,7 +322,29 @@ export default function MapView({ features, colorBy, breaks, onHover }: Props) {
           setHovered(null);
           onHover(null);
         });
+
+        // Tap or click to pick one. On a pointer device this pins what hover
+        // was already showing; on a touch device it is the only way to see it
+        // at all.
+        m.on('click', layer, (e: MapLayerMouseEvent) => {
+          const f = e.features?.[0];
+          if (!f) return;
+          setHovered((f.id ?? f.properties?.['geoid'] ?? null) as string | null);
+          onSelect(f.properties ?? null);
+        });
       }
+
+      // A tap on the map that hits no block group clears the selection — the
+      // ordinary way out of a detail panel, and on a phone the panel covers
+      // enough of the map to need one.
+      m.on('click', (e) => {
+        const layers = ['results-fill', 'results-dots'].filter((l) => m.getLayer(l));
+        if (layers.length === 0) return;
+        if (m.queryRenderedFeatures(e.point, { layers }).length === 0) {
+          setHovered(null);
+          onSelect(null);
+        }
+      });
 
       // The whole point: rebuilt layers are useless empty. Refill immediately,
       // without re-framing — a style swap should not yank the user's view.
@@ -367,7 +396,7 @@ export default function MapView({ features, colorBy, breaks, onHover }: Props) {
       paint.current = () => {};
       delete (window as unknown as { __catchmentMap?: MapLibreMap }).__catchmentMap;
     };
-  }, [onHover]);
+  }, [onHover, onSelect]);
 
   // New results: refill and frame them.
   useEffect(() => {
