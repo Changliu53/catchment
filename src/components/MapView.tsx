@@ -47,7 +47,7 @@ const FALLBACK: maplibregl.StyleSpecification = {
   layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
 };
 
-const STYLE_TIMEOUT_MS = 8000;
+const STYLE_TIMEOUT_MS = 12_000;
 
 const HARRIS_CENTER: [number, number] = [-95.44, 29.82];
 
@@ -133,16 +133,30 @@ export default function MapView({ features, colorBy, onHover }: Props) {
       if (m.isStyleLoaded()) addLayers();
     });
 
-    const watchdog = setTimeout(() => {
-      if (!m.isStyleLoaded()) {
-        console.warn('[map] basemap style did not load in time; falling back to OSM raster');
+    // The watchdog must only count time the page was actually visible.
+    // Chrome pauses requestAnimationFrame in background tabs, so MapLibre
+    // never renders a frame and never finishes loading its style there. A
+    // naive timer therefore fires for everyone who opens this in a background
+    // tab — demoting them to the fallback basemap when nothing was wrong.
+    let elapsed = 0;
+    const TICK = 1000;
+    const watchdog = setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      if (m.isStyleLoaded()) {
+        clearInterval(watchdog);
+        return;
+      }
+      elapsed += TICK;
+      if (elapsed >= STYLE_TIMEOUT_MS) {
+        clearInterval(watchdog);
+        console.warn('[map] basemap did not load while visible; falling back to OSM raster');
         m.setStyle(FALLBACK);
       }
-    }, STYLE_TIMEOUT_MS);
+    }, TICK);
 
     map.current = m;
     return () => {
-      clearTimeout(watchdog);
+      clearInterval(watchdog);
       m.remove();
       map.current = null;
       ready.current = false;
