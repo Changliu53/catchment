@@ -22,7 +22,7 @@ import { execute } from '@/lib/primitives';
 import { PRESET_BY_ID } from '@/lib/presets';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { planCache, normaliseQuestion } from '@/lib/cache';
-import { planFromQuestion } from '@/lib/orchestrate';
+import { OrchestrationError, planFromQuestion } from '@/lib/orchestrate';
 import { validatePlan, type Plan } from '@/lib/validate';
 
 export const runtime = 'nodejs';
@@ -144,10 +144,11 @@ export async function POST(req: Request) {
     raw = await planFromQuestion(question);
   } catch (err) {
     console.error('orchestration failed', err);
-    return NextResponse.json(
-      { ok: false, error: 'could not reach the model', detail: 'Try a preset question.' },
-      { status: 502 },
-    );
+    const detail =
+      err instanceof OrchestrationError
+        ? `${err.hint} The preset questions work regardless — they need no model.`
+        : 'The preset questions work regardless — they need no model.';
+    return NextResponse.json({ ok: false, error: 'the model call failed', detail }, { status: 502 });
   }
 
   const verdict = validatePlan(raw);
