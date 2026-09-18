@@ -16,36 +16,38 @@ import type { Map as MapLibreMap, MapLayerMouseEvent } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 /**
- * A self-contained raster style rather than a hosted vector one.
+ * Basemap, with a fallback.
  *
- * The hosted CARTO vector style loaded its JSON and its tiles but never fired
- * `load`: its sprite sheet came back as a 103-byte stub that this MapLibre
- * version would not finish resolving, so the style sat permanently
- * half-loaded. Nothing threw, nothing logged, and the map stayed blank — the
- * data layers are added on `load`, so they never appeared either.
+ * CARTO's keyless service is gated now: its sprite sheet returns a 103-byte
+ * stub and its raster tiles come back stamped "API KEY REQUIRED". Both
+ * symptoms have the same cause, and neither one fails loudly — the style
+ * simply never finishes loading, or the tiles render with a watermark baked
+ * into the image.
  *
- * Raster tiles need no sprite, no glyphs and no style-spec negotiation. That
- * removes the whole class of failure, and it matters more here than vector
- * crispness: this page has to still work in a year with nobody maintaining it.
+ * OpenFreeMap is a free, keyless public service whose sprite and glyphs are
+ * real (27 KB and 76 KB, verified). It is still someone else's server, so a
+ * watchdog swaps in plain OpenStreetMap raster tiles if the style has not
+ * loaded in time. A basemap that quietly stops working a year from now would
+ * take the whole demo with it, and nobody would be watching when it happened.
  */
-const BASEMAP: maplibregl.StyleSpecification = {
+const BASEMAP = 'https://tiles.openfreemap.org/styles/positron';
+
+const FALLBACK: maplibregl.StyleSpecification = {
   version: 8,
   sources: {
-    basemap: {
+    osm: {
       type: 'raster',
-      tiles: [
-        'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
-        'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
-        'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
-      ],
+      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
       tileSize: 256,
       maxzoom: 19,
       attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     },
   },
-  layers: [{ id: 'basemap', type: 'raster', source: 'basemap' }],
+  layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
 };
+
+const STYLE_TIMEOUT_MS = 8000;
 
 const HARRIS_CENTER: [number, number] = [-95.44, 29.82];
 
@@ -126,9 +128,21 @@ export default function MapView({ features, colorBy, onHover }: Props) {
 
     if (m.isStyleLoaded()) addLayers();
     else m.on('load', addLayers);
+    // setStyle drops every layer we added, so re-add whenever a style settles.
+    m.on('styledata', () => {
+      if (m.isStyleLoaded()) addLayers();
+    });
+
+    const watchdog = setTimeout(() => {
+      if (!m.isStyleLoaded()) {
+        console.warn('[map] basemap style did not load in time; falling back to OSM raster');
+        m.setStyle(FALLBACK);
+      }
+    }, STYLE_TIMEOUT_MS);
 
     map.current = m;
     return () => {
+      clearTimeout(watchdog);
       m.remove();
       map.current = null;
       ready.current = false;
