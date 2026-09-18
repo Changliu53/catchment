@@ -1,13 +1,20 @@
 'use client';
 
 /**
- * The map. MapLibre with a free CARTO basemap, so there is no token to leak
- * and no account that can lapse and break the demo months from now.
+ * The results map.
  *
- * Colour encodes one measure at a time, on a sequential ramp with the breaks
- * computed from the data actually on screen rather than fixed thresholds:
- * a fixed ramp would render most results as a single flat colour, since the
- * distributions here are heavily skewed.
+ * Two things here are load-bearing and were each the cause of a blank map:
+ *
+ *  1. `setStyle` destroys every source and layer. The style can change at any
+ *     time — the basemap watchdog swaps in a fallback — so rebuilding the
+ *     layers and *refilling them with the current data* has to happen together.
+ *     Rebuilding alone leaves correctly-configured, empty layers, and a map
+ *     that renders nothing while every other check passes.
+ *
+ *  2. MapLibre draws on requestAnimationFrame, which Chrome pauses in
+ *     background tabs. A map created in a hidden tab never renders, never fires
+ *     `load`, and never finishes loading its style. Nothing here may assume
+ *     `load` has fired, and the watchdog must not count time spent hidden.
  */
 
 import { useEffect, useRef } from 'react';
@@ -20,17 +27,10 @@ import { FILL_OPACITY, RAMP } from '@/lib/ramp';
 /**
  * Basemap, with a fallback.
  *
- * CARTO's keyless service is gated now: its sprite sheet returns a 103-byte
- * stub and its raster tiles come back stamped "API KEY REQUIRED". Both
- * symptoms have the same cause, and neither one fails loudly — the style
- * simply never finishes loading, or the tiles render with a watermark baked
- * into the image.
- *
- * OpenFreeMap is a free, keyless public service whose sprite and glyphs are
- * real (27 KB and 76 KB, verified). It is still someone else's server, so a
- * watchdog swaps in plain OpenStreetMap raster tiles if the style has not
- * loaded in time. A basemap that quietly stops working a year from now would
- * take the whole demo with it, and nobody would be watching when it happened.
+ * CARTO's keyless service is gated: its sprite returns a stub and its raster
+ * tiles arrive stamped "API KEY REQUIRED". OpenFreeMap is keyless and its
+ * assets are real, but it is still someone else's server, so a watchdog swaps
+ * in OpenStreetMap raster tiles if the style has not loaded while visible.
  */
 const BASEMAP = 'https://tiles.openfreemap.org/styles/positron';
 
@@ -50,28 +50,7 @@ const FALLBACK: maplibregl.StyleSpecification = {
 };
 
 const STYLE_TIMEOUT_MS = 12_000;
-
 const HARRIS_CENTER: [number, number] = [-95.44, 29.82];
-
-
-/**
- * Centroid of a polygon, good enough for placing a dot.
- *
- * Not a true centroid — the mean of the outer ring's vertices. For a census
- * block group that is within a few hundred metres of the real one, which is
- * invisible at the zooms this layer exists for.
- */
-function centroidOf(geometry: unknown): [number, number] | null {
-  const g = geometry as { type: string; coordinates: number[][][][] | number[][][] };
-  const polys = g?.type === 'MultiPolygon' ? (g.coordinates as number[][][][]) : [g?.coordinates as number[][][]];
-  let x = 0, y = 0, n = 0;
-  for (const poly of polys ?? []) {
-    const ring = poly?.[0];
-    if (!ring) continue;
-    for (const c of ring) { x += c[0]!; y += c[1]!; n++; }
-  }
-  return n === 0 ? null : [x / n, y / n];
-}
 
 export interface Feature {
   type: 'Feature';
@@ -82,17 +61,57 @@ export interface Feature {
 interface Props {
   features: Feature[];
   colorBy: string | null;
-  /** Class breaks, computed once by the page so the legend and the map agree. */
+  /** Class breaks, computed by the page so the legend and the map agree. */
   breaks: number[];
   onHover: (props: Record<string, number | string | boolean | null> | null) => void;
 }
 
+/**
+ * Mean of a polygon's outer-ring vertices. Not a true centroid, but within a
+ * few hundred metres of one for a census block group — invisible at the zooms
+ * the dot layer exists for.
+ */
+function centroidOf(geometry: unknown): [number, number] | null {
+  const g = geometry as { type?: string; coordinates?: unknown };
+  const polys = (g?.type === 'MultiPolygon'
+    ? (g.coordinates as number[][][][])
+    : [g?.coordinates as number[][][]]) ?? [];
+
+  let x = 0;
+  let y = 0;
+  let n = 0;
+  for (const poly of polys) {
+    for (const c of poly?.[0] ?? []) {
+      x += c[0]!;
+      y += c[1]!;
+      n++;
+    }
+  }
+  return n === 0 ? null : [x / n, y / n];
+}
+
+function colorExpression(colorBy: string | null, breaks: number[]): unknown {
+  if (!colorBy || breaks.length === 0) return RAMP[1]!;
+  const expr: unknown[] = ['step', ['to-number', ['get', colorBy], 0], RAMP[0]!];
+  breaks.forEach((b, i) => expr.push(b, RAMP[Math.min(i + 1, RAMP.length - 1)]!));
+  return expr;
+}
 
 export default function MapView({ features, colorBy, breaks, onHover }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
-  const ready = useRef(false);
   const hovered = useRef<string | null>(null);
+
+  // The latest render inputs, readable from callbacks that outlive a render.
+  // Without this, a style swap rebuilds the layers against whatever `features`
+  // was closed over when the map was created — which is the empty first render.
+  const latest = useRef({ features, colorBy, breaks });
+  latest.current = { features, colorBy, breaks };
+
+  // Fills the existing layers from `latest`. Safe to call at any time: it does
+  // nothing until the layers exist, and it is what makes a style swap
+  // recoverable rather than terminal.
+  const paint = useRef<(fit: boolean) => void>(() => {});
 
   useEffect(() => {
     if (!container.current || map.current) return;
@@ -105,79 +124,115 @@ export default function MapView({ features, colorBy, breaks, onHover }: Props) {
       attributionControl: { compact: true },
     });
     m.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
-
-    // Surface style and tile failures. Previously a stalled style produced a
-    // blank map with an empty console, which is the hardest kind of bug to see.
     m.on('error', (e) => console.error('[map]', e.error?.message ?? e));
 
-    const addLayers = () => {
-      if (m.getSource('results')) return; // idempotent
-      // promoteId lifts geoid into the feature id, which is what feature-state
-      // keys on. Without it the hovered polygon cannot be styled at all.
+    paint.current = (fit: boolean) => {
+      const polygons = m.getSource('results') as maplibregl.GeoJSONSource | undefined;
+      const dots = m.getSource('results-points') as maplibregl.GeoJSONSource | undefined;
+      if (!polygons || !dots) return;
+
+      const { features: fs, colorBy: cb, breaks: bk } = latest.current;
+
+      polygons.setData({ type: 'FeatureCollection', features: fs as never[] });
+      dots.setData({
+        type: 'FeatureCollection',
+        features: fs.flatMap((f) => {
+          const c = centroidOf(f.geometry);
+          return c
+            ? [
+                {
+                  type: 'Feature' as const,
+                  geometry: { type: 'Point' as const, coordinates: c },
+                  properties: f.properties,
+                },
+              ]
+            : [];
+        }) as never[],
+      });
+
+      const color = colorExpression(cb, bk);
+      m.setPaintProperty('results-fill', 'fill-color', color as never);
+      m.setPaintProperty('results-dots', 'circle-color', color as never);
+
+      if (fit && fs.length > 0) {
+        const b = new maplibregl.LngLatBounds();
+        for (const f of fs) {
+          const g = f.geometry as { type: string; coordinates: number[][][][] | number[][][] };
+          const polys =
+            g.type === 'MultiPolygon'
+              ? (g.coordinates as number[][][][])
+              : [g.coordinates as number[][][]];
+          for (const poly of polys) for (const ring of poly) for (const c of ring) {
+            b.extend([c[0]!, c[1]!]);
+          }
+        }
+        if (!b.isEmpty()) m.fitBounds(b, { padding: 56, maxZoom: 12, duration: 600 });
+      }
+    };
+
+    const setHovered = (id: string | null) => {
+      if (hovered.current === id) return;
+      for (const source of ['results', 'results-points'] as const) {
+        if (hovered.current !== null) {
+          m.setFeatureState({ source, id: hovered.current }, { hover: false });
+        }
+        if (id !== null) m.setFeatureState({ source, id }, { hover: true });
+      }
+      hovered.current = id;
+    };
+
+    const build = () => {
+      if (m.getSource('results')) return;
+
+      // promoteId lifts geoid into the feature id, which feature-state keys on.
       m.addSource('results', {
         type: 'geojson',
         promoteId: 'geoid',
         data: { type: 'FeatureCollection', features: [] },
       });
-      m.addLayer({
-        id: 'results-fill',
-        type: 'fill',
-        source: 'results',
-        paint: { 'fill-color': RAMP[0]!, 'fill-opacity': FILL_OPACITY },
-      });
-      // Block groups are small. A result scattered across the county forces a
-      // zoom where each polygon is a few pixels wide — drawn, but unreadable,
-      // and on a busy basemap indistinguishable from nothing at all. Dots carry
-      // the same colour at those zooms and hand over to the polygons on the way
-      // in, so there is never a zoom at which the answer is invisible.
       m.addSource('results-points', {
         type: 'geojson',
         promoteId: 'geoid',
         data: { type: 'FeatureCollection', features: [] },
       });
-      m.addLayer({
-        id: 'results-dots',
-        type: 'circle',
-        source: 'results-points',
-        paint: {
-          'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 5, 11, 7, 13, 9],
-          'circle-color': RAMP[0]!,
-          'circle-stroke-color': '#ffffff',
-          'circle-stroke-width': ['case', ['boolean', ['feature-state', 'hover'], false], 3, 1.5],
-          'circle-opacity': ['interpolate', ['linear'], ['zoom'], 11.5, 0.95, 13, 0],
-          'circle-stroke-opacity': ['interpolate', ['linear'], ['zoom'], 11.5, 1, 13, 0],
-        },
-      });
 
+      m.addLayer({
+        id: 'results-fill',
+        type: 'fill',
+        source: 'results',
+        paint: { 'fill-color': RAMP[1]!, 'fill-opacity': FILL_OPACITY },
+      });
       m.addLayer({
         id: 'results-line',
         type: 'line',
         source: 'results',
         paint: {
-          // The hovered polygon gets a white halo rather than a darker edge:
-          // against six shades of blue, lighter reads as "picked out" at every
-          // step of the ramp, where a darker line disappears into the dark end.
+          // White for the hovered edge: against six shades of blue, lighter
+          // reads as "picked out" at every step, where darker vanishes into
+          // the dark end of the ramp.
           'line-color': ['case', ['boolean', ['feature-state', 'hover'], false], '#ffffff', '#1e293b'],
           'line-width': ['case', ['boolean', ['feature-state', 'hover'], false], 2.5, 0.9],
           'line-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 1, 0.7],
         },
       });
 
-      // Hovering a dot means hovering the block group it stands for, so both
-      // layers drive the same highlight. Highlight state lives on the polygon
-      // source: the dot is a stand-in for it, not a separate thing.
-      const setHovered = (id: string | null) => {
-        if (hovered.current === id) return;
-        if (hovered.current !== null) {
-          m.setFeatureState({ source: 'results', id: hovered.current }, { hover: false });
-          m.setFeatureState({ source: 'results-points', id: hovered.current }, { hover: false });
-        }
-        hovered.current = id;
-        if (id !== null) {
-          m.setFeatureState({ source: 'results', id }, { hover: true });
-          m.setFeatureState({ source: 'results-points', id }, { hover: true });
-        }
-      };
+      // Block groups are small. A result scattered across the county forces a
+      // zoom where each polygon is a few pixels wide — drawn, but on a busy
+      // basemap indistinguishable from nothing. Dots carry the same colour
+      // there and hand back to the polygons on the way in.
+      m.addLayer({
+        id: 'results-dots',
+        type: 'circle',
+        source: 'results-points',
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 5, 11, 7, 13, 9],
+          'circle-color': RAMP[1]!,
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': ['case', ['boolean', ['feature-state', 'hover'], false], 3, 1.5],
+          'circle-opacity': ['interpolate', ['linear'], ['zoom'], 11.5, 0.95, 13, 0],
+          'circle-stroke-opacity': ['interpolate', ['linear'], ['zoom'], 11.5, 1, 13, 0],
+        },
+      });
 
       for (const layer of ['results-fill', 'results-dots'] as const) {
         m.on('mousemove', layer, (e: MapLayerMouseEvent) => {
@@ -194,21 +249,22 @@ export default function MapView({ features, colorBy, breaks, onHover }: Props) {
         });
       }
 
-      ready.current = true;
+      // The whole point: rebuilt layers are useless empty. Refill immediately,
+      // without re-framing — a style swap should not yank the user's view.
+      paint.current(false);
     };
 
-    if (m.isStyleLoaded()) addLayers();
-    else m.on('load', addLayers);
-    // setStyle drops every layer we added, so re-add whenever a style settles.
+    // `styledata` fires for the first style and for every later one, so this
+    // single hook covers both the initial build and any fallback swap. `load`
+    // may never fire at all if the tab starts hidden.
     m.on('styledata', () => {
-      if (m.isStyleLoaded()) addLayers();
+      if (m.isStyleLoaded()) build();
     });
+    if (m.isStyleLoaded()) build();
 
-    // The watchdog must only count time the page was actually visible.
-    // Chrome pauses requestAnimationFrame in background tabs, so MapLibre
-    // never renders a frame and never finishes loading its style there. A
-    // naive timer therefore fires for everyone who opens this in a background
-    // tab — demoting them to the fallback basemap when nothing was wrong.
+    // Count only time the page was actually visible: rAF is paused in a
+    // background tab, so a plain timer demotes every background-opened page to
+    // the fallback basemap when nothing was wrong.
     let elapsed = 0;
     const TICK = 1000;
     const watchdog = setInterval(() => {
@@ -230,54 +286,13 @@ export default function MapView({ features, colorBy, breaks, onHover }: Props) {
       clearInterval(watchdog);
       m.remove();
       map.current = null;
-      ready.current = false;
+      paint.current = () => {};
     };
   }, [onHover]);
 
+  // New results: refill and frame them.
   useEffect(() => {
-    const m = map.current;
-    if (!m) return;
-
-    const apply = () => {
-      const src = m.getSource('results') as maplibregl.GeoJSONSource | undefined;
-      if (!src) return;
-
-      src.setData({ type: 'FeatureCollection', features: features as never[] });
-
-      const dots = m.getSource('results-points') as maplibregl.GeoJSONSource | undefined;
-      dots?.setData({
-        type: 'FeatureCollection',
-        features: features.flatMap((f) => {
-          const c = centroidOf(f.geometry);
-          return c ? [{ type: 'Feature' as const, geometry: { type: 'Point' as const, coordinates: c }, properties: f.properties }] : [];
-        }) as never[],
-      });
-
-      if (colorBy && breaks.length > 0) {
-        const expr: unknown[] = ['step', ['to-number', ['get', colorBy], 0], RAMP[0]!];
-        breaks.forEach((b, i) => expr.push(b, RAMP[Math.min(i + 1, RAMP.length - 1)]!));
-        m.setPaintProperty('results-fill', 'fill-color', expr as never);
-        m.setPaintProperty('results-dots', 'circle-color', expr as never);
-      } else {
-        m.setPaintProperty('results-fill', 'fill-color', RAMP[1]!);
-        m.setPaintProperty('results-dots', 'circle-color', RAMP[1]!);
-      }
-
-      if (features.length > 0) {
-        const b = new maplibregl.LngLatBounds();
-        for (const f of features) {
-          const g = f.geometry as { type: string; coordinates: number[][][][] | number[][][] };
-          const polys = g.type === 'MultiPolygon' ? (g.coordinates as number[][][][]) : [g.coordinates as number[][][]];
-          for (const poly of polys) for (const ring of poly) for (const c of ring) {
-            b.extend([c[0]!, c[1]!]);
-          }
-        }
-        if (!b.isEmpty()) m.fitBounds(b, { padding: 56, maxZoom: 12, duration: 600 });
-      }
-    };
-
-    if (ready.current) apply();
-    else m.on('load', apply);
+    paint.current(true);
   }, [features, colorBy, breaks]);
 
   return <div ref={container} className="h-full w-full" aria-label="Map of analysis results" />;
