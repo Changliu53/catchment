@@ -65,6 +65,9 @@ export default function Home() {
   const [result, setResult] = useState<Result | null>(null);
   const [refusal, setRefusal] = useState<Refusal | null>(null);
   const [hover, setHover] = useState<Record<string, number | string | boolean | null> | null>(null);
+  const [selected, setSelected] = useState<Record<string, number | string | boolean | null> | null>(
+    null,
+  );
   const controls = useRef<HTMLElement>(null);
 
   const run = useCallback(async (body: { presetId?: string; question?: string }) => {
@@ -105,6 +108,15 @@ export default function Home() {
   }, []);
 
   const onHover = useCallback((p: Record<string, number | string | boolean | null> | null) => setHover(p), []);
+  const onSelect = useCallback(
+    (p: Record<string, number | string | boolean | null> | null) => setSelected(p),
+    [],
+  );
+
+  // What the detail panel shows. A pick wins over a passing hover: on touch
+  // there is no hover at all, and on a pointer device a reader who clicked a
+  // block group should not lose it by moving the mouse.
+  const detail = selected ?? hover;
 
   // Classification happens once, in one place. If the map computed its own
   // breaks the legend would be describing a different map than the one drawn.
@@ -135,6 +147,9 @@ export default function Home() {
   // presets rather than below them.
   useEffect(() => {
     if (result || refusal) controls.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    // The picked block group belonged to the previous answer.
+    setSelected(null);
+    setHover(null);
   }, [result, refusal]);
 
   return (
@@ -250,6 +265,7 @@ export default function Home() {
           colorBy={colorBy}
           breaks={breaks}
           onHover={onHover}
+          onSelect={onSelect}
         />
 
         {colorBy && result && result.features.length > 0 && (
@@ -265,11 +281,29 @@ export default function Home() {
           </div>
         )}
 
-        {hover && (
-          <div className="pointer-events-none absolute bottom-4 left-4 max-w-[17rem] rounded-lg bg-white/95 p-3 text-xs shadow-lg ring-1 ring-slate-200">
-            <p className="font-mono text-[11px] text-slate-500">
-              Block group {String(hover.geoid)}
-            </p>
+        {detail && (
+          /* pointer-events only when it is a pick: a panel that follows the
+             cursor must not swallow the hover it is describing, but a panel a
+             touch user opened has to be dismissible. */
+          <div
+            className={`absolute bottom-3 left-3 right-3 rounded-lg bg-white/95 p-3 text-xs shadow-lg ring-1 ring-slate-200 sm:right-auto sm:max-w-[17rem] ${
+              selected ? 'pointer-events-auto' : 'pointer-events-none'
+            }`}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <p className="font-mono text-[11px] text-slate-500">
+                Block group {String(detail.geoid)}
+              </p>
+              {selected && (
+                <button
+                  onClick={() => setSelected(null)}
+                  aria-label="Close block group details"
+                  className="-mr-1 -mt-1 shrink-0 rounded px-1.5 py-0.5 text-sm leading-none text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                >
+                  ×
+                </button>
+              )}
+            </div>
             <dl className="mt-1.5 grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 text-slate-700">
               {(
                 [
@@ -289,13 +323,13 @@ export default function Home() {
                   <dd
                     className={`text-right tabular-nums ${f === colorBy ? 'font-medium text-slate-900' : ''}`}
                   >
-                    {formatValue(f, hover[f] === null ? null : Number(hover[f]))}
-                    {f === 'median_income' && hover.income_topcoded ? '+' : ''}
+                    {formatValue(f, detail[f] === null ? null : Number(detail[f]))}
+                    {f === 'median_income' && detail.income_topcoded ? '+' : ''}
                   </dd>
                 </Fragment>
               ))}
             </dl>
-            {hover.income_topcoded ? (
+            {detail.income_topcoded ? (
               <p className="mt-1.5 text-[10px] leading-snug text-slate-500">
                 + income is top-coded by the Census at $250,001.
               </p>
