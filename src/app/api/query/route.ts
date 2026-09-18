@@ -43,7 +43,20 @@ function clientKey(req: Request): string {
 }
 
 async function respondWith(plan: Plan, source: 'preset' | 'cache' | 'model', extra = {}) {
-  const [rows, totals] = await Promise.all([loadBlockGroups(), countyTotals()]);
+  let rows, totals;
+  try {
+    [rows, totals] = await Promise.all([loadBlockGroups(), countyTotals()]);
+  } catch (err) {
+    // Name the likely cause rather than leaving a 500 for the client to guess
+    // at. A misconfigured deployment is far more common here than a genuine
+    // database fault, and the two need different fixes.
+    const detail =
+      err instanceof Error && err.message.includes('DATABASE_URL')
+        ? 'DATABASE_URL is not set on this deployment. Add it in the project settings and redeploy — environment variables added after a build are not picked up until the next one.'
+        : 'The database could not be read. The dataset may not have been loaded yet.';
+    console.error('data load failed', err);
+    return NextResponse.json({ ok: false, error: 'data unavailable', detail }, { status: 503 });
+  }
   const result = execute(plan, rows);
   const matched = result.rows as BlockGroupFeature[];
 

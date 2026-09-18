@@ -72,14 +72,29 @@ export default function Home() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),
       });
-      const data = await res.json();
-      if (data.ok) {
-        setResult(data as Result);
-      } else {
-        setRefusal(data as Refusal);
+      const text = await res.text();
+      let data: unknown;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        // A non-JSON body means the function crashed before our handlers ran.
+        // Show the status and a slice of the body; a blank "network error"
+        // tells the person nothing they can act on.
+        setRefusal({
+          ok: false,
+          error: `server error ${res.status}`,
+          detail: text.slice(0, 200) || 'The server returned an empty response.',
+        });
+        return;
       }
-    } catch {
-      setRefusal({ ok: false, error: 'network error', detail: 'Try again, or use a preset.' });
+      if ((data as Result).ok) setResult(data as Result);
+      else setRefusal(data as Refusal);
+    } catch (err) {
+      setRefusal({
+        ok: false,
+        error: 'could not reach the server',
+        detail: err instanceof Error ? err.message : 'Check your connection and try again.',
+      });
     } finally {
       setLoading(false);
     }
