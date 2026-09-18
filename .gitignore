@@ -8,3 +8,5 @@ build/blockgroups_analyzed.geojson
 __pycache__/
 *.pyc
 _to_delete/
+.venv/
+venv/
