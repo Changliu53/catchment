@@ -1,21 +1,31 @@
-Analysis primitives, validation, and the Harris County data pipeline
+test: guard the blank-map regression at two layers
 
-The model never emits executable code. It fills a closed schema of six
-primitives, so its output needs no sanitisation: there is no escape hatch.
-Correctness lives in a pure executor, tested independently of any model.
+The map rendered nothing because MapLibre v6 loads its Web Worker as a
+separate chunk and that URL did not survive bundling: the request fell back
+to the document root and returned the 404 HTML page. The worker is what
+turns GeoJSON into renderable tiles, so its absence explained every symptom
+while the source, the layers, the paint expressions and the console all
+looked correct.
 
-Pipeline notes worth keeping:
-- Two geometries per block group. Full precision for measurement, 10 m
-  simplification for display. Simplification moves boundaries by up to ~5% of
-  area on the smallest polygons, so measuring against display geometry would
-  be wrong; the schema makes that mistake impossible to express.
-- All measurement happens in EPSG:32615, never in degrees. Recomputed county
-  area is 4,606 km2 against an official 4,602.
-- The Overpass query matched both Harris County, Texas and Harris County,
-  Georgia. POIs are filtered by containment in the real county boundary
-  rather than a bounding box.
-- ACS -666666666 means suppressed, not zero, and is kept NULL. 250001 is a
-  top code, not a real income, and is flagged so it is never averaged.
-- flood_pct is the FEMA SFHA share; flood_pct_500 is tracked separately
-  because many Houston homes that flooded in Harvey sat outside the SFHA.
+Unit (src/lib/__tests__/maplibre-packaging.test.ts): assert the installed
+maplibre-gl inlines its worker as a Blob, references no external worker
+chunk, and stays on the major version whose entry does that. An upgrade
+that reintroduces the packaging fails here rather than on the deployed map.
 
+End-to-end (e2e/map.spec.ts, Playwright): load the page, click a preset,
+assert queryRenderedFeatures() returns the features. That API can only
+answer from tiles the worker produced, so it is a direct probe of what
+broke. It runs against a production build on purpose — the fault was a
+bundling fault and next dev served the worker fine.
+
+The third spec is a negative control: it replaces window.Worker with an
+implementation that constructs but never answers, and asserts the layers
+still exist while nothing renders. A regression test that has never failed
+is a guess about what it measures; this one reproduces the fault and shows
+the probe going to zero.
+
+/api/query is intercepted with a fixture, so neither suite needs
+DATABASE_URL or an API key.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01Ayw5cveSdf7vB7xZgXZJno
