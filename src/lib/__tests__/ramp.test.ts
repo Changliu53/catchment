@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classRanges, quantileBreaks, RAMP } from '../ramp';
+import { classRanges, colorExpression, NO_DATA, quantileBreaks, RAMP } from '../ramp';
 import { formatValue, labelFor } from '../format';
 
 describe('quantileBreaks', () => {
@@ -60,5 +60,39 @@ describe('formatValue', () => {
   it('labels the two flood fields distinguishably', () => {
     expect(labelFor('flood_pct')).not.toBe(labelFor('flood_pct_500'));
     expect(labelFor('flood_pct')).toContain('100-year');
+  });
+});
+
+describe('colorExpression', () => {
+  it('routes a null value to the no-data colour, not to the ramp', () => {
+    const expr = colorExpression('median_income', [40000, 60000]) as unknown[];
+    expect(expr[0]).toBe('case');
+    // The condition has to compare against null itself. `has` reports an
+    // explicit null as present, and a to-number fallback never fires, because
+    // to-number turns null into 0 rather than into the fallback — both were
+    // checked against MapLibre's evaluator and both are wrong here.
+    expect(expr[1]).toEqual(['==', ['get', 'median_income'], null]);
+    expect(expr[2]).toBe(NO_DATA);
+  });
+
+  it('never coerces a missing value into the lowest class', () => {
+    const expr = JSON.stringify(colorExpression('median_income', [40000]));
+    // A default of 0 on to-number is exactly how suppressed income became
+    // "poorest" on the map.
+    expect(expr).not.toContain('["to-number",["get","median_income"],0]');
+  });
+
+  it('steps through the ramp on the value branch', () => {
+    const expr = colorExpression('pop', [100, 200, 300]) as unknown[];
+    const shaded = expr[3] as unknown[];
+    expect(shaded[0]).toBe('step');
+    expect(shaded[1]).toEqual(['to-number', ['get', 'pop']]);
+    expect(shaded.slice(2)).toEqual([RAMP[0], 100, RAMP[1], 200, RAMP[2], 300, RAMP[3]]);
+  });
+
+  it('falls back to a flat colour when there is nothing to classify', () => {
+    expect(colorExpression(null, [1, 2])).toBe(RAMP[1]);
+    const flat = colorExpression('pop', []) as unknown[];
+    expect(flat[3]).toBe(RAMP[1]);
   });
 });

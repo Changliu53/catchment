@@ -74,9 +74,13 @@ are wrong by a factor that varies with latitude.
   catches a dropped extract, a bad projection, or duplicated geometry at once,
   and `pipeline/county_outline.py` fails rather than shipping an outline if it
   drifts past 1%.
-- **Nulls stay null.** Census income suppression means "unknown", not "zero".
-  Rows with no value are excluded from statistics rather than coerced, and they
-  sort last in both directions.
+- **Nulls stay null, on the map as well as in the statistics.** Census income
+  suppression means "unknown", not "zero" — and it covers 273 of the 2,830
+  block groups. They are excluded from statistics rather than coerced, they
+  sort last in both directions, they are shaded in a neutral grey outside the
+  ramp, and the legend counts them. Coercing them would have painted them as
+  the poorest neighbourhoods in the county *and* dragged every quantile break
+  downwards, so the error would have reached rows whose data was fine.
 - **Class breaks are quantiles, not equal intervals.** Population density here
   spans three orders of magnitude; equal intervals would paint 95% of the
   county in the first class and call it a map.

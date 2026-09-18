@@ -33,7 +33,7 @@ import maplibregl from 'maplibre-gl';
 import type { Map as MapLibreMap, MapLayerMouseEvent } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
-import { FILL_OPACITY, RAMP } from '@/lib/ramp';
+import { colorExpression, FILL_OPACITY, RAMP } from '@/lib/ramp';
 import COUNTY from '@/lib/harris-county.json';
 
 /**
@@ -134,13 +134,6 @@ function centroidOf(geometry: unknown): [number, number] | null {
   return n === 0 ? null : [x / n, y / n];
 }
 
-function colorExpression(colorBy: string | null, breaks: number[]): unknown {
-  if (!colorBy || breaks.length === 0) return RAMP[1]!;
-  const expr: unknown[] = ['step', ['to-number', ['get', colorBy], 0], RAMP[0]!];
-  breaks.forEach((b, i) => expr.push(b, RAMP[Math.min(i + 1, RAMP.length - 1)]!));
-  return expr;
-}
-
 export default function MapView({ features, colorBy, breaks, onHover }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
@@ -217,7 +210,12 @@ export default function MapView({ features, colorBy, breaks, onHover }: Props) {
             b.extend([c[0]!, c[1]!]);
           }
         }
-        if (!b.isEmpty()) m.fitBounds(b, { padding: 56, maxZoom: 12, duration: 600 });
+        // A camera flight is motion the reader did not ask for. Respect the
+        // system setting and jump instead — the destination is identical.
+        const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+        if (!b.isEmpty()) {
+          m.fitBounds(b, { padding: 56, maxZoom: 12, duration: still ? 0 : 600 });
+        }
       }
     };
 

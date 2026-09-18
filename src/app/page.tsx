@@ -109,10 +109,24 @@ export default function Home() {
   // Classification happens once, in one place. If the map computed its own
   // breaks the legend would be describing a different map than the one drawn.
   const colorBy = result?.plan.color_by ?? null;
-  const colorValues = useMemo(
-    () => (colorBy ? (result?.features ?? []).map((f) => Number(f.properties[colorBy])) : []),
-    [result, colorBy],
-  );
+
+  // Nulls are counted, never coerced. `Number(null)` is 0, so mapping the
+  // values straight through put 273 block groups with suppressed income at the
+  // bottom of the distribution — which both painted them as the poorest areas
+  // in the county and dragged every quantile break downwards.
+  const { colorValues, missing } = useMemo(() => {
+    if (!colorBy) return { colorValues: [] as number[], missing: 0 };
+    const values: number[] = [];
+    let absent = 0;
+    for (const f of result?.features ?? []) {
+      const raw = f.properties[colorBy];
+      const n = raw === null || raw === '' ? NaN : Number(raw);
+      if (Number.isFinite(n)) values.push(n);
+      else absent++;
+    }
+    return { colorValues: values, missing: absent };
+  }, [result, colorBy]);
+
   const breaks = useMemo(() => quantileBreaks(colorValues), [colorValues]);
 
   // Bring a new answer into view. On a phone the controls are a 45%-tall
@@ -239,7 +253,7 @@ export default function Home() {
         />
 
         {colorBy && result && result.features.length > 0 && (
-          <Legend field={colorBy} values={colorValues} breaks={breaks} />
+          <Legend field={colorBy} values={colorValues} breaks={breaks} missing={missing} />
         )}
 
         {!result && !loading && (
