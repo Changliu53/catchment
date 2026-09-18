@@ -1,9 +1,12 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useCallback, useState } from 'react';
+import { Fragment, useCallback, useMemo, useState } from 'react';
 
+import Legend from '@/components/Legend';
+import { formatValue, labelFor } from '@/lib/format';
 import { PRESETS } from '@/lib/presets';
+import { quantileBreaks } from '@/lib/ramp';
 import type { Feature } from '@/components/MapView';
 
 const MapView = dynamic(() => import('@/components/MapView'), {
@@ -102,6 +105,15 @@ export default function Home() {
 
   const onHover = useCallback((p: Record<string, number | string | boolean | null> | null) => setHover(p), []);
 
+  // Classification happens once, in one place. If the map computed its own
+  // breaks the legend would be describing a different map than the one drawn.
+  const colorBy = result?.plan.color_by ?? null;
+  const colorValues = useMemo(
+    () => (colorBy ? (result?.features ?? []).map((f) => Number(f.properties[colorBy])) : []),
+    [result, colorBy],
+  );
+  const breaks = useMemo(() => quantileBreaks(colorValues), [colorValues]);
+
   return (
     <main className="flex h-screen flex-col lg:flex-row">
       {/* ---------------- controls ---------------- */}
@@ -191,9 +203,14 @@ export default function Home() {
       <div className="relative min-h-0 flex-1">
         <MapView
           features={result?.features ?? []}
-          colorBy={result?.plan.color_by ?? null}
+          colorBy={colorBy}
+          breaks={breaks}
           onHover={onHover}
         />
+
+        {colorBy && result && result.features.length > 0 && (
+          <Legend field={colorBy} values={colorValues} breaks={breaks} />
+        )}
 
         {!result && !loading && (
           <div className="pointer-events-none absolute inset-0 grid place-items-center p-6">
@@ -205,25 +222,40 @@ export default function Home() {
         )}
 
         {hover && (
-          <div className="pointer-events-none absolute bottom-4 left-4 rounded-lg bg-white/95 p-3 text-xs shadow-lg ring-1 ring-slate-200">
-            <p className="font-mono text-[11px] text-slate-500">{String(hover.geoid)}</p>
-            <dl className="mt-1.5 grid grid-cols-[auto_auto] gap-x-3 gap-y-0.5 text-slate-700">
-              <dt>Population</dt>
-              <dd className="text-right tabular-nums">{fmt.format(Number(hover.pop))}</dd>
-              <dt>Median income</dt>
-              <dd className="text-right tabular-nums">
-                {money(hover.median_income === null ? null : Number(hover.median_income))}
-                {hover.income_topcoded ? '+' : ''}
-              </dd>
-              <dt>In 100-yr floodplain</dt>
-              <dd className="text-right tabular-nums">
-                {(Number(hover.flood_pct) * 100).toFixed(0)}%
-              </dd>
-              <dt>To supermarket</dt>
-              <dd className="text-right tabular-nums">
-                {fmt.format(Math.round(Number(hover.dist_grocery_m)))} m
-              </dd>
+          <div className="pointer-events-none absolute bottom-4 left-4 max-w-[17rem] rounded-lg bg-white/95 p-3 text-xs shadow-lg ring-1 ring-slate-200">
+            <p className="font-mono text-[11px] text-slate-500">
+              Block group {String(hover.geoid)}
+            </p>
+            <dl className="mt-1.5 grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 text-slate-700">
+              {(
+                [
+                  'pop',
+                  'median_income',
+                  'pop_density',
+                  'flood_pct',
+                  'flood_pct_500',
+                  'dist_grocery_m',
+                  'dist_park_m',
+                ] as const
+              ).map((f) => (
+                <Fragment key={f}>
+                  <dt className={f === colorBy ? 'font-medium text-slate-900' : ''}>
+                    {labelFor(f)}
+                  </dt>
+                  <dd
+                    className={`text-right tabular-nums ${f === colorBy ? 'font-medium text-slate-900' : ''}`}
+                  >
+                    {formatValue(f, hover[f] === null ? null : Number(hover[f]))}
+                    {f === 'median_income' && hover.income_topcoded ? '+' : ''}
+                  </dd>
+                </Fragment>
+              ))}
             </dl>
+            {hover.income_topcoded ? (
+              <p className="mt-1.5 text-[10px] leading-snug text-slate-500">
+                + income is top-coded by the Census at $250,001.
+              </p>
+            ) : null}
           </div>
         )}
       </div>
