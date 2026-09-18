@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { Fragment, useCallback, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import Legend from '@/components/Legend';
 import { formatValue, labelFor } from '@/lib/format';
@@ -65,6 +65,7 @@ export default function Home() {
   const [result, setResult] = useState<Result | null>(null);
   const [refusal, setRefusal] = useState<Refusal | null>(null);
   const [hover, setHover] = useState<Record<string, number | string | boolean | null> | null>(null);
+  const controls = useRef<HTMLElement>(null);
 
   const run = useCallback(async (body: { presetId?: string; question?: string }) => {
     setLoading(true);
@@ -114,10 +115,32 @@ export default function Home() {
   );
   const breaks = useMemo(() => quantileBreaks(colorValues), [colorValues]);
 
+  // Bring a new answer into view. On a phone the controls are a 45%-tall
+  // scroller, so a result that lands while the reader is halfway down the
+  // preset list is invisible; this is also why the panel sits above the
+  // presets rather than below them.
+  useEffect(() => {
+    if (result || refusal) controls.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [result, refusal]);
+
   return (
-    <main className="flex h-screen flex-col lg:flex-row">
+    // h-dvh, not h-screen: on mobile Safari 100vh is the height the page
+    // *would* have with the URL bar hidden, so h-screen puts the bottom of the
+    // map under the browser chrome.
+    <main className="flex h-dvh flex-col lg:flex-row">
       {/* ---------------- controls ---------------- */}
-      <aside className="flex w-full shrink-0 flex-col gap-5 overflow-y-auto border-slate-200 bg-white p-5 lg:w-[26rem] lg:border-r">
+      {/*
+        The explicit height is load-bearing on small screens. Stacked, this
+        aside is ~1000px of content and `shrink-0` means it will not give any
+        of that back, so the map — the entire point of the page — was squeezed
+        to zero pixels on a phone and 237 on a tablet. Capping the controls at
+        45% of the viewport and letting them scroll inside that leaves the map
+        a real 55%.
+      */}
+      <aside
+        ref={controls}
+        className="flex h-[45dvh] w-full shrink-0 flex-col gap-5 overflow-y-auto border-b border-slate-200 bg-white p-5 lg:h-full lg:w-[26rem] lg:border-b-0 lg:border-r"
+      >
         <header>
           <h1 className="text-lg font-semibold tracking-tight text-slate-900">Catchment</h1>
           <p className="mt-1 text-sm leading-relaxed text-slate-600">
@@ -150,25 +173,6 @@ export default function Home() {
           </button>
         </form>
 
-        <section>
-          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-            Try one — these are free
-          </h2>
-          <ul className="flex flex-col gap-1.5">
-            {PRESETS.map((p) => (
-              <li key={p.id}>
-                <button
-                  onClick={() => !loading && run({ presetId: p.id })}
-                  disabled={loading}
-                  className="w-full rounded-md border border-slate-200 px-3 py-2 text-left text-sm leading-snug text-slate-700 transition hover:border-blue-400 hover:bg-blue-50 disabled:opacity-50"
-                >
-                  {p.question}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-
         {refusal && (
           <section
             role="status"
@@ -189,6 +193,32 @@ export default function Home() {
         )}
 
         {result && <PlanPanel result={result} />}
+
+        {/*
+          Below the answer, deliberately. These are a menu, and once someone
+          has asked something the answer is what they came back to the panel
+          for; eight buttons between the question box and the result meant the
+          numbers landed off-screen on every laptop.
+        */}
+        <section>
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+            {result || refusal ? 'Ask another — these are free' : 'Try one — these are free'}
+          </h2>
+          <ul className="flex flex-col gap-1.5">
+            {PRESETS.map((p) => (
+              <li key={p.id}>
+                <button
+                  onClick={() => !loading && run({ presetId: p.id })}
+                  disabled={loading}
+                  aria-current={result?.plan.title === p.plan.title ? 'true' : undefined}
+                  className="w-full rounded-md border border-slate-200 px-3 py-2 text-left text-sm leading-snug text-slate-700 transition hover:border-blue-400 hover:bg-blue-50 disabled:opacity-50 aria-[current]:border-blue-400 aria-[current]:bg-blue-50"
+                >
+                  {p.question}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
 
         <footer className="mt-auto pt-4 text-xs leading-relaxed text-slate-500">
           <p>
