@@ -122,6 +122,22 @@ export const QUERY_FIXTURE_SUPPRESSED = {
  */
 export const STUB_STYLE = {
   version: 8,
-  sources: {},
-  layers: [{ id: 'bg', type: 'background', paint: { 'background-color': '#f1f5f9' } }],
+  // An empty source purely so MapLibre renders its attribution control at a
+  // real size. Without attribution text the control is a zero-sized element,
+  // and a test asserting that nothing overlaps it would be comparing against
+  // a box at the origin — which is how it passed while the live map had the
+  // detail panel sitting 22px under the attribution bar.
+  sources: {
+    attribution: {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: [] },
+      attribution: '&copy; OpenStreetMap contributors',
+    },
+  },
+  layers: [
+    { id: 'bg', type: 'background', paint: { 'background-color': '#f1f5f9' } },
+    // MapLibre only credits sources a layer actually uses, so the empty source
+    // above needs one or the attribution control stays empty.
+    { id: 'attribution', type: 'circle', source: 'attribution' },
+  ],
 };
