@@ -137,6 +137,13 @@ export default function MapView({ features, colorBy, breaks, onHover }: Props) {
     m.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     m.on('error', (e) => console.error('[map]', e.error?.message ?? e));
 
+    // A handle for the end-to-end regression test (e2e/map.spec.ts). The blank
+    // map was invisible from outside: the DOM, the sources, the layers and the
+    // paint expressions were all exactly right and only the worker was missing.
+    // The one honest question to ask is what the map actually managed to
+    // render, and only the instance can answer it.
+    (window as unknown as { __catchmentMap?: MapLibreMap }).__catchmentMap = m;
+
     paint.current = (fit: boolean) => {
       const polygons = m.getSource('results') as maplibregl.GeoJSONSource | undefined;
       const dots = m.getSource('results-points') as maplibregl.GeoJSONSource | undefined;
@@ -308,6 +315,7 @@ export default function MapView({ features, colorBy, breaks, onHover }: Props) {
       m.remove();
       map.current = null;
       paint.current = () => {};
+      delete (window as unknown as { __catchmentMap?: MapLibreMap }).__catchmentMap;
     };
   }, [onHover]);
 
