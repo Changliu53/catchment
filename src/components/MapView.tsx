@@ -18,7 +18,18 @@
  */
 
 import { useEffect, useRef } from 'react';
-import * as maplibregl from 'maplibre-gl';
+// maplibre-gl v5 on purpose. v6 is ESM-only and loads its Web Worker as a
+// separate chunk via `new Worker(new URL(...))`; the bundler did not emit that
+// URL into the deployed build, so the worker request fell back to the document
+// root and came back as the 404 HTML page.
+//
+// That worker is what turns GeoJSON into renderable tiles, so losing it made
+// the map draw nothing while every other check passed — sources present,
+// layers present and on top, colour expression correct, no thrown errors. The
+// only visible trace was one console line about a module script with the wrong
+// MIME type. v5's UMD build inlines the worker as a Blob: nothing to resolve,
+// nothing to 404.
+import maplibregl from 'maplibre-gl';
 import type { Map as MapLibreMap, MapLayerMouseEvent } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
