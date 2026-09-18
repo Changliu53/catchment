@@ -15,7 +15,38 @@ import * as maplibregl from 'maplibre-gl';
 import type { Map as MapLibreMap, MapLayerMouseEvent } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
-const BASEMAP = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
+/**
+ * A self-contained raster style rather than a hosted vector one.
+ *
+ * The hosted CARTO vector style loaded its JSON and its tiles but never fired
+ * `load`: its sprite sheet came back as a 103-byte stub that this MapLibre
+ * version would not finish resolving, so the style sat permanently
+ * half-loaded. Nothing threw, nothing logged, and the map stayed blank — the
+ * data layers are added on `load`, so they never appeared either.
+ *
+ * Raster tiles need no sprite, no glyphs and no style-spec negotiation. That
+ * removes the whole class of failure, and it matters more here than vector
+ * crispness: this page has to still work in a year with nobody maintaining it.
+ */
+const BASEMAP: maplibregl.StyleSpecification = {
+  version: 8,
+  sources: {
+    basemap: {
+      type: 'raster',
+      tiles: [
+        'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+        'https://b.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+        'https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+      ],
+      tileSize: 256,
+      maxzoom: 19,
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    },
+  },
+  layers: [{ id: 'basemap', type: 'raster', source: 'basemap' }],
+};
+
 const HARRIS_CENTER: [number, number] = [-95.44, 29.82];
 
 const RAMP = ['#dbeafe', '#bfdbfe', '#93c5fd', '#60a5fa', '#3b82f6', '#1d4ed8'];
@@ -61,7 +92,12 @@ export default function MapView({ features, colorBy, onHover }: Props) {
     });
     m.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 
-    m.on('load', () => {
+    // Surface style and tile failures. Previously a stalled style produced a
+    // blank map with an empty console, which is the hardest kind of bug to see.
+    m.on('error', (e) => console.error('[map]', e.error?.message ?? e));
+
+    const addLayers = () => {
+      if (m.getSource('results')) return; // idempotent
       m.addSource('results', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       m.addLayer({
         id: 'results-fill',
@@ -86,8 +122,10 @@ export default function MapView({ features, colorBy, onHover }: Props) {
       });
 
       ready.current = true;
-      m.getSource('results'); // touch so the first data effect finds it
-    });
+    };
+
+    if (m.isStyleLoaded()) addLayers();
+    else m.on('load', addLayers);
 
     map.current = m;
     return () => {
@@ -133,7 +171,7 @@ export default function MapView({ features, colorBy, onHover }: Props) {
     };
 
     if (ready.current) apply();
-    else m.once('load', apply);
+    else m.on('load', apply);
   }, [features, colorBy]);
 
   return <div ref={container} className="h-full w-full" aria-label="Map of analysis results" />;
