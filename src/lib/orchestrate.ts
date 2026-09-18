@@ -24,7 +24,10 @@ import {
 } from './schema';
 import { PRESETS, UNSUPPORTED_EXAMPLE } from './presets';
 
-const MODEL = 'claude-haiku-4-5';
+// Dated snapshot, not a bare alias: `claude-haiku-4-5` is not a valid
+// identifier and the API rejects it. Pinning the snapshot also means a new
+// Haiku release cannot silently change this demo's behaviour.
+const MODEL = process.env.ANTHROPIC_MODEL ?? 'claude-haiku-4-5-20251001';
 
 // A translation into a closed schema needs no reasoning ability, so this is
 // sized to the task rather than to the biggest model available. It also caps
@@ -178,18 +181,56 @@ function anthropic(): Anthropic {
  * the question genuinely does not fit, and retrying past that is a linear way
  * to burn money on a public endpoint.
  */
+/** Turns an SDK failure into something a reader can act on. */
+export class OrchestrationError extends Error {
+  constructor(
+    readonly hint: string,
+    cause: unknown,
+  ) {
+    super(hint, { cause });
+    this.name = 'OrchestrationError';
+  }
+}
+
+function describeFailure(err: unknown): string {
+  const status = (err as { status?: number })?.status;
+  switch (status) {
+    case 401:
+    case 403:
+      return 'The Anthropic API key was rejected. Check ANTHROPIC_API_KEY on the deployment.';
+    case 404:
+      return `The model "${MODEL}" was not found. Model IDs are dated snapshots; check the current one.`;
+    case 429:
+      return 'The Anthropic account is rate limited or out of credit.';
+    case 400:
+      return 'The request was rejected as malformed — usually the tool schema, not the question.';
+    default:
+      return status
+        ? `The Anthropic API returned ${status}.`
+        : 'The Anthropic API could not be reached.';
+  }
+}
+
 export async function planFromQuestion(question: string): Promise<unknown> {
   const messages: Anthropic.MessageParam[] = [{ role: 'user', content: question }];
 
   for (let attempt = 0; attempt < 2; attempt++) {
-    const response = await anthropic().messages.create({
-      model: MODEL,
-      max_tokens: MAX_TOKENS,
-      system: systemPrompt(),
-      tools: [TOOL],
-      tool_choice: { type: 'tool', name: TOOL.name },
-      messages,
-    });
+    let response;
+    try {
+      response = await anthropic().messages.create({
+        model: MODEL,
+        max_tokens: MAX_TOKENS,
+        system: systemPrompt(),
+        tools: [TOOL],
+        tool_choice: { type: 'tool', name: TOOL.name },
+        messages,
+      });
+    } catch (err) {
+      // Swallowing this was a real defect: a wrong model ID and a rejected key
+      // both surfaced as the same opaque "could not reach the model", which
+      // points at the network and gives no way to tell the two apart.
+      throw new OrchestrationError(describeFailure(err), err);
+    }
 
     const block = response.content.find((c) => c.type === 'tool_use');
     if (block && block.type === 'tool_use') return block.input;
