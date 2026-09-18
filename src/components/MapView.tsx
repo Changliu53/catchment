@@ -54,6 +54,25 @@ const STYLE_TIMEOUT_MS = 12_000;
 const HARRIS_CENTER: [number, number] = [-95.44, 29.82];
 
 
+/**
+ * Centroid of a polygon, good enough for placing a dot.
+ *
+ * Not a true centroid — the mean of the outer ring's vertices. For a census
+ * block group that is within a few hundred metres of the real one, which is
+ * invisible at the zooms this layer exists for.
+ */
+function centroidOf(geometry: unknown): [number, number] | null {
+  const g = geometry as { type: string; coordinates: number[][][][] | number[][][] };
+  const polys = g?.type === 'MultiPolygon' ? (g.coordinates as number[][][][]) : [g?.coordinates as number[][][]];
+  let x = 0, y = 0, n = 0;
+  for (const poly of polys ?? []) {
+    const ring = poly?.[0];
+    if (!ring) continue;
+    for (const c of ring) { x += c[0]!; y += c[1]!; n++; }
+  }
+  return n === 0 ? null : [x / n, y / n];
+}
+
 export interface Feature {
   type: 'Feature';
   geometry: unknown;
@@ -106,6 +125,30 @@ export default function MapView({ features, colorBy, breaks, onHover }: Props) {
         source: 'results',
         paint: { 'fill-color': RAMP[0]!, 'fill-opacity': FILL_OPACITY },
       });
+      // Block groups are small. A result scattered across the county forces a
+      // zoom where each polygon is a few pixels wide — drawn, but unreadable,
+      // and on a busy basemap indistinguishable from nothing at all. Dots carry
+      // the same colour at those zooms and hand over to the polygons on the way
+      // in, so there is never a zoom at which the answer is invisible.
+      m.addSource('results-points', {
+        type: 'geojson',
+        promoteId: 'geoid',
+        data: { type: 'FeatureCollection', features: [] },
+      });
+      m.addLayer({
+        id: 'results-dots',
+        type: 'circle',
+        source: 'results-points',
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 5, 11, 7, 13, 9],
+          'circle-color': RAMP[0]!,
+          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': ['case', ['boolean', ['feature-state', 'hover'], false], 3, 1.5],
+          'circle-opacity': ['interpolate', ['linear'], ['zoom'], 11.5, 0.95, 13, 0],
+          'circle-stroke-opacity': ['interpolate', ['linear'], ['zoom'], 11.5, 1, 13, 0],
+        },
+      });
+
       m.addLayer({
         id: 'results-line',
         type: 'line',
@@ -115,30 +158,41 @@ export default function MapView({ features, colorBy, breaks, onHover }: Props) {
           // against six shades of blue, lighter reads as "picked out" at every
           // step of the ramp, where a darker line disappears into the dark end.
           'line-color': ['case', ['boolean', ['feature-state', 'hover'], false], '#ffffff', '#1e293b'],
-          'line-width': ['case', ['boolean', ['feature-state', 'hover'], false], 2.5, 0.4],
-          'line-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 1, 0.45],
+          'line-width': ['case', ['boolean', ['feature-state', 'hover'], false], 2.5, 0.9],
+          'line-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 1, 0.7],
         },
       });
 
-      m.on('mousemove', 'results-fill', (e: MapLayerMouseEvent) => {
-        const f = e.features?.[0];
-        if (!f) return;
-        m.getCanvas().style.cursor = 'pointer';
-        if (hovered.current !== null && hovered.current !== f.id) {
-          m.setFeatureState({ source: 'results', id: hovered.current }, { hover: false });
-        }
-        hovered.current = f.id as string;
-        m.setFeatureState({ source: 'results', id: f.id as string }, { hover: true });
-        onHover(f.properties ?? null);
-      });
-      m.on('mouseleave', 'results-fill', () => {
-        m.getCanvas().style.cursor = '';
+      // Hovering a dot means hovering the block group it stands for, so both
+      // layers drive the same highlight. Highlight state lives on the polygon
+      // source: the dot is a stand-in for it, not a separate thing.
+      const setHovered = (id: string | null) => {
+        if (hovered.current === id) return;
         if (hovered.current !== null) {
           m.setFeatureState({ source: 'results', id: hovered.current }, { hover: false });
-          hovered.current = null;
+          m.setFeatureState({ source: 'results-points', id: hovered.current }, { hover: false });
         }
-        onHover(null);
-      });
+        hovered.current = id;
+        if (id !== null) {
+          m.setFeatureState({ source: 'results', id }, { hover: true });
+          m.setFeatureState({ source: 'results-points', id }, { hover: true });
+        }
+      };
+
+      for (const layer of ['results-fill', 'results-dots'] as const) {
+        m.on('mousemove', layer, (e: MapLayerMouseEvent) => {
+          const f = e.features?.[0];
+          if (!f) return;
+          m.getCanvas().style.cursor = 'pointer';
+          setHovered((f.id ?? f.properties?.['geoid'] ?? null) as string | null);
+          onHover(f.properties ?? null);
+        });
+        m.on('mouseleave', layer, () => {
+          m.getCanvas().style.cursor = '';
+          setHovered(null);
+          onHover(null);
+        });
+      }
 
       ready.current = true;
     };
@@ -190,12 +244,23 @@ export default function MapView({ features, colorBy, breaks, onHover }: Props) {
 
       src.setData({ type: 'FeatureCollection', features: features as never[] });
 
+      const dots = m.getSource('results-points') as maplibregl.GeoJSONSource | undefined;
+      dots?.setData({
+        type: 'FeatureCollection',
+        features: features.flatMap((f) => {
+          const c = centroidOf(f.geometry);
+          return c ? [{ type: 'Feature' as const, geometry: { type: 'Point' as const, coordinates: c }, properties: f.properties }] : [];
+        }) as never[],
+      });
+
       if (colorBy && breaks.length > 0) {
         const expr: unknown[] = ['step', ['to-number', ['get', colorBy], 0], RAMP[0]!];
         breaks.forEach((b, i) => expr.push(b, RAMP[Math.min(i + 1, RAMP.length - 1)]!));
         m.setPaintProperty('results-fill', 'fill-color', expr as never);
+        m.setPaintProperty('results-dots', 'circle-color', expr as never);
       } else {
         m.setPaintProperty('results-fill', 'fill-color', RAMP[1]!);
+        m.setPaintProperty('results-dots', 'circle-color', RAMP[1]!);
       }
 
       if (features.length > 0) {
