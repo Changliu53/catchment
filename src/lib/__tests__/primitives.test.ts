@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { describeDistribution, execute } from '../primitives.js';
-import type { Plan } from '../validate.js';
-import { FIXTURE_ROWS, ids } from './fixtures.js';
+import { describeDistribution, execute } from '../primitives';
+import type { Plan } from '../validate';
+import { FIXTURE_ROWS, ids } from './fixtures';
 
 const plan = (pipeline: Plan['pipeline'], extra: Partial<Plan> = {}): Plan => ({
   pipeline,

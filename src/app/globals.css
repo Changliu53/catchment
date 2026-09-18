@@ -1,0 +1,29 @@
+@import 'tailwindcss';
+
+/*
+ * One palette, defined once. The choropleth ramp is sequential and
+ * colour-blind safe (viridis-derived); the accent is used only for
+ * interactive affordances so colour never carries meaning alone.
+ */
+@theme {
+  --color-ink: oklch(0.22 0.02 260);
+  --color-ink-soft: oklch(0.52 0.02 260);
+  --color-surface: oklch(0.99 0.003 260);
+  --color-surface-raised: oklch(1 0 0);
+  --color-edge: oklch(0.91 0.006 260);
+  --color-accent: oklch(0.55 0.16 250);
+
+  --color-ramp-0: oklch(0.94 0.03 230);
+  --color-ramp-1: oklch(0.84 0.07 225);
+  --color-ramp-2: oklch(0.72 0.11 220);
+  --color-ramp-3: oklch(0.59 0.14 245);
+  --color-ramp-4: oklch(0.44 0.15 265);
+  --color-ramp-5: oklch(0.31 0.13 280);
+}
+
+html, body { height: 100%; }
+body {
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-feature-settings: 'tnum' 1;
+}

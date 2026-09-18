@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validatePlan } from '../validate.js';
+import { validatePlan } from '../validate';
 
 const base = { render: 'choropleth' as const, title: 'test' };
 
