@@ -1,0 +1,21 @@
+Analysis primitives, validation, and the Harris County data pipeline
+
+The model never emits executable code. It fills a closed schema of six
+primitives, so its output needs no sanitisation: there is no escape hatch.
+Correctness lives in a pure executor, tested independently of any model.
+
+Pipeline notes worth keeping:
+- Two geometries per block group. Full precision for measurement, 10 m
+  simplification for display. Simplification moves boundaries by up to ~5% of
+  area on the smallest polygons, so measuring against display geometry would
+  be wrong; the schema makes that mistake impossible to express.
+- All measurement happens in EPSG:32615, never in degrees. Recomputed county
+  area is 4,606 km2 against an official 4,602.
+- The Overpass query matched both Harris County, Texas and Harris County,
+  Georgia. POIs are filtered by containment in the real county boundary
+  rather than a bounding box.
+- ACS -666666666 means suppressed, not zero, and is kept NULL. 250001 is a
+  top code, not a real income, and is flagged so it is never averaged.
+- flood_pct is the FEMA SFHA share; flood_pct_500 is tracked separately
+  because many Houston homes that flooded in Harvey sat outside the SFHA.
+
