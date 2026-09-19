@@ -33,7 +33,7 @@ import maplibregl from 'maplibre-gl';
 import type { Map as MapLibreMap, MapLayerMouseEvent } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
-import { colorExpression, FILL_OPACITY, RAMP } from '@/lib/ramp';
+import { colorExpression, FILL_OPACITY, RAMP, splitExpression } from '@/lib/ramp';
 import COUNTY from '@/lib/harris-county.json';
 
 /**
@@ -107,6 +107,14 @@ interface Props {
   colorBy: string | null;
   /** Class breaks, computed by the page so the legend and the map agree. */
   breaks: number[];
+  /**
+   * Set when the answer is a comparison rather than a shaded field. A compare
+   * step returns statistics, not a value per row, so there is nothing to grade
+   * — the map instead paints which side of the threshold each block group
+   * falls on, and drops the dot layer, which at 2,830 features is noise rather
+   * than an aid.
+   */
+  split: { field: string; threshold: number } | null;
   onHover: (props: Record<string, number | string | boolean | null> | null) => void;
   /**
    * A block group the reader picked, rather than passed over. Touch devices
@@ -141,7 +149,7 @@ function centroidOf(geometry: unknown): [number, number] | null {
   return n === 0 ? null : [x / n, y / n];
 }
 
-export default function MapView({ features, colorBy, breaks, onHover, onSelect }: Props) {
+export default function MapView({ features, colorBy, breaks, split, onHover, onSelect }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
   const hovered = useRef<string | null>(null);
@@ -149,8 +157,8 @@ export default function MapView({ features, colorBy, breaks, onHover, onSelect }
   // The latest render inputs, readable from callbacks that outlive a render.
   // Without this, a style swap rebuilds the layers against whatever `features`
   // was closed over when the map was created — which is the empty first render.
-  const latest = useRef({ features, colorBy, breaks });
-  latest.current = { features, colorBy, breaks };
+  const latest = useRef({ features, colorBy, breaks, split });
+  latest.current = { features, colorBy, breaks, split };
 
   // Fills the existing layers from `latest`. Safe to call at any time: it does
   // nothing until the layers exist, and it is what makes a style swap
@@ -182,7 +190,7 @@ export default function MapView({ features, colorBy, breaks, onHover, onSelect }
       const dots = m.getSource('results-points') as maplibregl.GeoJSONSource | undefined;
       if (!polygons || !dots) return;
 
-      const { features: fs, colorBy: cb, breaks: bk } = latest.current;
+      const { features: fs, colorBy: cb, breaks: bk, split: sp } = latest.current;
 
       polygons.setData({ type: 'FeatureCollection', features: fs as never[] });
       dots.setData({
@@ -201,9 +209,20 @@ export default function MapView({ features, colorBy, breaks, onHover, onSelect }
         }) as never[],
       });
 
-      const color = colorExpression(cb, bk);
+      const color = sp ? splitExpression(sp.field, sp.threshold) : colorExpression(cb, bk);
       m.setPaintProperty('results-fill', 'fill-color', color as never);
       m.setPaintProperty('results-dots', 'circle-color', color as never);
+
+      // A comparison covers the whole county, so every polygon has a neighbour
+      // and the dots mark nothing. The outline softens for the same reason:
+      // 2,830 outlined shapes read as a mesh laid over the map.
+      m.setLayoutProperty('results-dots', 'visibility', sp ? 'none' : 'visible');
+      m.setPaintProperty('results-line', 'line-opacity', [
+        'case',
+        ['boolean', ['feature-state', 'hover'], false],
+        1,
+        sp ? 0.25 : 0.7,
+      ] as never);
 
       if (fit && fs.length > 0) {
         const b = new maplibregl.LngLatBounds();
@@ -401,7 +420,7 @@ export default function MapView({ features, colorBy, breaks, onHover, onSelect }
   // New results: refill and frame them.
   useEffect(() => {
     paint.current(true);
-  }, [features, colorBy, breaks]);
+  }, [features, colorBy, breaks, split]);
 
   return <div ref={container} className="h-full w-full" aria-label="Map of analysis results" />;
 }

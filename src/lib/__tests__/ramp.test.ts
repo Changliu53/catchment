@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { classRanges, colorExpression, NO_DATA, quantileBreaks, RAMP } from '../ramp';
+import {
+  classRanges,
+  colorExpression,
+  NO_DATA,
+  quantileBreaks,
+  RAMP,
+  SPLIT_ABOVE,
+  SPLIT_BELOW,
+  splitExpression,
+} from '../ramp';
 import { formatValue, labelFor } from '../format';
 
 describe('quantileBreaks', () => {
@@ -94,5 +103,27 @@ describe('colorExpression', () => {
     expect(colorExpression(null, [1, 2])).toBe(RAMP[1]);
     const flat = colorExpression('pop', []) as unknown[];
     expect(flat[3]).toBe(RAMP[1]);
+  });
+});
+
+describe('splitExpression', () => {
+  it('paints the two sides of the threshold, and neither is the no-data grey', () => {
+    const expr = splitExpression('flood_pct', 0.5) as unknown[];
+    expect(expr[0]).toBe('case');
+    // Missing first, so a suppressed value is never counted into either group.
+    expect(expr[1]).toEqual(['==', ['get', 'flood_pct'], null]);
+    expect(expr[2]).toBe(NO_DATA);
+    expect(expr[3]).toEqual(['>=', ['to-number', ['get', 'flood_pct']], 0.5]);
+    expect(expr[4]).toBe(SPLIT_ABOVE);
+    expect(expr[5]).toBe(SPLIT_BELOW);
+  });
+
+  it('uses two ends of the sequential ramp, because the split is ordinal', () => {
+    // A categorical pair would assert the groups are unordered; >= 0.5 is more
+    // than < 0.5. Both must still come from the ramp, and differ.
+    expect(RAMP).toContain(SPLIT_ABOVE);
+    expect(RAMP).toContain(SPLIT_BELOW);
+    expect(SPLIT_ABOVE).not.toBe(SPLIT_BELOW);
+    expect(RAMP.indexOf(SPLIT_ABOVE)).toBeGreaterThan(RAMP.indexOf(SPLIT_BELOW));
   });
 });

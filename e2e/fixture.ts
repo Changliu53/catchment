@@ -141,3 +141,38 @@ export const STUB_STYLE = {
     { id: 'attribution', type: 'circle', source: 'attribution' },
   ],
 };
+
+/**
+ * A `compare` answer: statistics, not a shaded field.
+ *
+ * The real preset returns every block group in the county — compare filters
+ * nothing — with no `color_by`, because its output is a pair of distributions
+ * rather than a value per row. That combination used to fall through to the
+ * default branch and paint all 2,830 polygons one flat colour, with the dot
+ * layer on top and no legend at all: a map that expressed nothing.
+ */
+export const QUERY_FIXTURE_COMPARISON = {
+  ...QUERY_FIXTURE,
+  plan: {
+    title: 'Income distribution by flood exposure',
+    pipeline: [
+      { op: 'compare', measure: 'median_income', split_on: 'flood_pct', threshold: 0.5 },
+    ],
+    render: 'comparison',
+    // No color_by, exactly as the preset ships.
+  },
+  comparison: {
+    measure: 'median_income',
+    split_on: 'flood_pct',
+    threshold: 0.5,
+    above: { n: 5, mean: 63000, median: 63475, p25: 45619, p75: 103654 },
+    below: { n: 3, mean: 73000, median: 73563, p25: 49436, p75: 107458 },
+  },
+  // The base fixture's rows are all above the threshold, which would let a map
+  // that ignored the split entirely still pass. Three are pushed below it so
+  // "both colours are on screen" is a claim the test can actually make.
+  features: QUERY_FIXTURE.features.map((f, i) => ({
+    ...f,
+    properties: { ...f.properties, flood_pct: i < 5 ? 0.6 + i * 0.05 : 0.2 + i * 0.05 },
+  })),
+};
