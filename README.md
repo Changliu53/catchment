@@ -155,6 +155,18 @@ possible place to let an exception escape. A second Playwright server runs that
 exact half-configured environment (`e2e/degraded.spec.ts`), and reverting
 either fix turns it red.
 
+**Trusted origins are the deployment's own hostnames, not just one.** Better
+Auth rejects a sign-in whose `Origin` is not trusted, and by default the only
+trusted origin is `BETTER_AUTH_URL`. Correct in general; a trap on Vercel,
+where one deployment answers on its production domain, a branch alias and a
+unique per-deployment URL. Opening the app by any of the others and pressing
+sign in returned `403 {"code":"INVALID_ORIGIN"}` — a hostname problem wearing
+the costume of a broken button. The list now comes from Vercel's own
+environment variables, so it is exactly the names Vercel serves this project
+at and nothing else: an unrelated origin is still refused. The OAuth callback
+is still built from `BETTER_AUTH_URL`, so whichever name you start on, GitHub
+is handed the single address registered with it.
+
 **Sign-in reports its own failure, which it did not at first.** Signing in with
 a social provider is not one hop: the server records the OAuth state in a row
 *before* it can hand back a URL to redirect to. With the tables not yet
