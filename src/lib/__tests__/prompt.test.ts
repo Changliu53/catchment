@@ -67,6 +67,18 @@ describe('the prompt', () => {
     expect(prompt).toMatch(/travel or commute time cannot\s+be answered/i);
   });
 
+  it('says which floodplain flood_exposure means', () => {
+    // Found by the evaluation, not by reading. The catalogue said "in a
+    // floodplain" and the op is hard-wired to flood_pct, so a question about
+    // the 500-year zone got a 100-year answer — which validates, draws, and
+    // understates exposure, the one error this dataset is most likely to be
+    // quoted for. A rule elsewhere in the prompt already distinguished the two
+    // fields; it did not help, because the ambiguity was in the op catalogue.
+    const line = prompt.split('\n').find((l) => l.startsWith('- flood_exposure('))!;
+    expect(line).toContain('flood_pct');
+    expect(line).toContain('flood_pct_500');
+  });
+
   it('shows a declined example, not only successes', () => {
     // A model shown only successes learns that an answer is always required.
     const answers = [...prompt.matchAll(/^A: (\{.*\})$/gm)].map((m) => JSON.parse(m[1]!));
