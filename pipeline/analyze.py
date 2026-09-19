@@ -79,8 +79,17 @@ def main() -> int:
     out = args.build / paths.TABLE.name
     out.parent.mkdir(parents=True, exist_ok=True)
     n = build(src, out)
+
+    # The table is committed; the manifest is what makes regenerating it a
+    # visible act. A changed checksum and row count in a diff is reviewable
+    # where "binary file modified" is not.
+    manifest = args.build / paths.MANIFEST.name
+    m = paths.write_manifest(out, manifest, n)
+
     print(f"rows    : {n}")
     print(f"wrote   : {out} ({out.stat().st_size / 1e6:.1f} MB gzipped)")
+    print(f"sha256  : {m['sha256']}")
+    print(f"manifest: {manifest}")
     return 0
 
 
