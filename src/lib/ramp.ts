@@ -44,6 +44,33 @@ export const NO_DATA = '#cbd5e1';
  * — and the second fails silently, which is how a bug like this survives a
  * code review.
  */
+/**
+ * The two ends of the ramp, for a comparison.
+ *
+ * A `compare` step has no field to shade by — its output is a pair of
+ * distributions, not a value per row — so the map used to paint all 2,830
+ * block groups one flat colour and say nothing at all. These two classes let
+ * it say the thing the statistics table cannot: where each group actually is.
+ *
+ * Two ends of the sequential ramp rather than two unrelated hues, because the
+ * split is ordinal. `flood_pct >= 0.5` is *more* than `< 0.5`, and a
+ * categorical pair would assert the groups are unordered.
+ */
+export const SPLIT_BELOW = RAMP[0];
+export const SPLIT_ABOVE = RAMP[4];
+
+/** Fill colour for a comparison: which side of the threshold each row falls. */
+export function splitExpression(field: string, threshold: number): unknown {
+  return [
+    'case',
+    ['==', ['get', field], null],
+    NO_DATA,
+    ['>=', ['to-number', ['get', field]], threshold],
+    SPLIT_ABOVE,
+    SPLIT_BELOW,
+  ];
+}
+
 export function colorExpression(colorBy: string | null, breaks: number[]): unknown {
   if (!colorBy) return RAMP[1];
 

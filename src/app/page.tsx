@@ -141,6 +141,21 @@ export default function Home() {
 
   const breaks = useMemo(() => quantileBreaks(colorValues), [colorValues]);
 
+  // A compare step answers with statistics, not a value per row, so there is
+  // no field to shade by. The map paints the two groups instead.
+  const split = useMemo(
+    () =>
+      result?.comparison
+        ? {
+            field: result.comparison.split_on,
+            threshold: result.comparison.threshold,
+            above: result.comparison.above.n,
+            below: result.comparison.below.n,
+          }
+        : null,
+    [result],
+  );
+
   // Bring a new answer into view. On a phone the controls are a 45%-tall
   // scroller, so a result that lands while the reader is halfway down the
   // preset list is invisible; this is also why the panel sits above the
@@ -264,12 +279,19 @@ export default function Home() {
           features={result?.features ?? []}
           colorBy={colorBy}
           breaks={breaks}
+          split={split}
           onHover={onHover}
           onSelect={onSelect}
         />
 
-        {colorBy && result && result.features.length > 0 && (
-          <Legend field={colorBy} values={colorValues} breaks={breaks} missing={missing} />
+        {result && result.features.length > 0 && (colorBy || split) && (
+          <Legend
+            field={colorBy ?? split!.field}
+            values={colorValues}
+            breaks={breaks}
+            missing={missing}
+            split={split}
+          />
         )}
 
         {!result && !loading && (
