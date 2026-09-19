@@ -90,7 +90,7 @@ const STEP_SCHEMA = {
  * Two tools, not one with a union. Declining is a first-class outcome, so it
  * gets its own tool rather than a variant the model has to notice it may pick.
  */
-const ANALYSE_TOOL = {
+export const ANALYSE_TOOL = {
   name: 'analyse',
   description: 'Run an analysis over Harris County block groups and draw the result.',
   input_schema: {
@@ -105,7 +105,7 @@ const ANALYSE_TOOL = {
   },
 };
 
-const DECLINE_TOOL = {
+export const DECLINE_TOOL = {
   name: 'decline',
   description:
     'Say that the question cannot be answered with this dataset. This is a correct ' +
@@ -124,8 +124,14 @@ const DECLINE_TOOL = {
   },
 };
 
-/** Built from the schema, never hand-written. */
-function systemPrompt(): string {
+/**
+ * Built from the schema, never hand-written.
+ *
+ * Exported so a test can read what the model is actually sent. The whole point
+ * of generating it is that it cannot drift from `schema.ts`, and the only way
+ * to check that is to render it and look.
+ */
+export function systemPrompt(): string {
   const examples = PRESETS.slice(0, 3)
     .map((p) => `Q: ${p.question}\nA: ${JSON.stringify(p.plan)}`)
     .join('\n\n');
