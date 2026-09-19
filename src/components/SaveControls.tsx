@@ -55,12 +55,22 @@ export default function SaveControls({
               </button>
             </form>
 
-            <form action={deleteAnalysis}>
-              <input type="hidden" name="slug" value={saved.slug} />
-              <button className="text-slate-500 underline-offset-2 hover:text-red-700 hover:underline">
+            {/* Two steps, and a native <details> rather than a confirm()
+                dialog: deleting is irreversible and there is no undo, but the
+                rest of this page works with JavaScript switched off and a
+                destructive action is the last place to make an exception. */}
+            <details className="group">
+              <summary className="cursor-pointer list-none text-slate-500 underline-offset-2 hover:text-red-700 hover:underline">
                 Delete this analysis
-              </button>
-            </form>
+              </summary>
+              <form action={deleteAnalysis} className="mt-1.5 flex items-center gap-2">
+                <input type="hidden" name="slug" value={saved.slug} />
+                <span className="text-slate-500">This cannot be undone.</span>
+                <button className="rounded border border-red-300 px-2 py-0.5 font-medium text-red-700 transition hover:bg-red-50">
+                  Delete
+                </button>
+              </form>
+            </details>
           </div>
         ) : (
           <>
