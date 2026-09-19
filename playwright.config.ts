@@ -9,14 +9,17 @@ import { defineConfig, devices } from '@playwright/test';
  * and reported nothing. `next build && next start` is the only configuration
  * in which the original failure reproduces.
  *
- * Two servers, because "does it work" and "does it survive a half-configured
- * environment" are different questions and only one of them can be asked of a
- * given process. Both run the same build; they differ only in environment.
+ * Three servers, because "does it work", "does it survive a half-configured
+ * environment" and "does it say so when the database is down" are different
+ * questions, and a process can only be asked one of them. All three run the
+ * same build; they differ only in environment.
  */
 
 const PORT = Number(process.env.E2E_PORT ?? 3100);
 /** Accounts not configured: a connection string, nothing else. */
 const DEGRADED_PORT = PORT + 1;
+/** Accounts configured, database refusing connections. */
+const OUTAGE_PORT = PORT + 2;
 /** Nothing listens here. Anything that tries to connect fails immediately. */
 const DEAD_DATABASE = 'postgresql://postgres:postgres@127.0.0.1:59999/not_migrated';
 
@@ -45,13 +48,18 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      testIgnore: /degraded\.spec\.ts/,
+      testIgnore: /(degraded|outage)\.spec\.ts/,
       use: { ...chrome, baseURL: `http://127.0.0.1:${PORT}` },
     },
     {
       name: 'degraded',
       testMatch: /degraded\.spec\.ts/,
       use: { ...chrome, baseURL: `http://127.0.0.1:${DEGRADED_PORT}` },
+    },
+    {
+      name: 'outage',
+      testMatch: /outage\.spec\.ts/,
+      use: { ...chrome, baseURL: `http://127.0.0.1:${OUTAGE_PORT}` },
     },
   ],
 
@@ -89,6 +97,29 @@ export default defineConfig({
       command: `npx next start --port ${DEGRADED_PORT}`,
       env: { CATCHMENT_DATA: 'fixture', DATABASE_URL: DEAD_DATABASE },
       url: `http://127.0.0.1:${DEGRADED_PORT}`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 240_000,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    },
+    {
+      // Accounts fully configured, database refusing connections. Unlike the
+      // two above, this one exists to exercise a click: signing in writes a
+      // row recording the OAuth state *before* it can hand back a URL to
+      // redirect to, so a database that is down makes the button fail rather
+      // than merely be useless. It has to say so. The credentials are
+      // deliberately nonsense — nothing is ever authenticated here, only
+      // attempted.
+      command: `npx next start --port ${OUTAGE_PORT}`,
+      env: {
+        CATCHMENT_DATA: 'fixture',
+        DATABASE_URL: DEAD_DATABASE,
+        BETTER_AUTH_SECRET: 'e2e-not-a-real-secret-0000000000',
+        GITHUB_CLIENT_ID: 'e2e-not-a-real-client-id',
+        GITHUB_CLIENT_SECRET: 'e2e-not-a-real-client-secret',
+        BETTER_AUTH_URL: `http://127.0.0.1:${OUTAGE_PORT}`,
+      },
+      url: `http://127.0.0.1:${OUTAGE_PORT}`,
       reuseExistingServer: !process.env.CI,
       timeout: 240_000,
       stdout: 'pipe',

@@ -19,6 +19,7 @@ import { and, desc, eq } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import { savedAnalysis } from '@/db/schema';
+import { PRESETS } from '@/lib/presets';
 
 export interface SavedAnalysis {
   slug: string;
@@ -52,6 +53,24 @@ export function paramsFor(row: Pick<SavedAnalysis, 'presetId' | 'question'>): st
   return row.presetId
     ? `preset=${encodeURIComponent(row.presetId)}`
     : `q=${encodeURIComponent(row.question ?? '')}`;
+}
+
+/**
+ * The question behind a saved row, in the words someone would recognise.
+ *
+ * Not `paramsFor`. That builds a URL and is percent-encoded by definition, and
+ * it was briefly what the saved list displayed — so a question someone typed
+ * came back as `q=which%20neighborhood%20having%20the%20least%20flood…`. Fine
+ * in an address bar, unreadable in a list of your own work.
+ *
+ * A preset resolves to its wording rather than its id for the same reason:
+ * `income-flood-gap` is a key, not a question.
+ */
+export function questionFor(row: Pick<SavedAnalysis, 'presetId' | 'question'>): string {
+  if (row.question) return row.question;
+
+  const preset = PRESETS.find((p) => p.id === row.presetId);
+  return preset?.question ?? row.presetId ?? '';
 }
 
 export async function listForUser(userId: string): Promise<SavedAnalysis[]> {
