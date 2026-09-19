@@ -5,6 +5,6 @@
 # dependency drifted is worse than one that refuses to install.
 geopandas~=1.1
 shapely~=2.1
-pyproj~=3.7
-pandas~=2.2
-psycopg[binary]~=3.2
+pyproj~=3.8
+pandas~=3.0
+psycopg[binary]~=3.3
