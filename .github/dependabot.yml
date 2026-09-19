@@ -6,9 +6,15 @@
 # either passed or failed as a unit — which is the question actually being
 # asked.
 #
+# Every ecosystem splits majors out on their own. That split is not decoration:
+# the first pip group shipped without it, and pandas 2.2 -> 3.0 arrived bundled
+# with two harmless minors, so the one change worth reading was the one hardest
+# to see.
+#
 # CI here runs lint, typecheck, unit tests against a Postgres service
-# container, and the full Playwright suite against a production build, so a
-# green update pull request is a real signal rather than a passing install.
+# container, and the full Playwright suite against a production build. It does
+# NOT run the Python pipeline at all, so a green check on a pip update is not
+# evidence about the pipeline — see the comment on that ecosystem below.
 version: 2
 
 updates:
@@ -42,12 +48,23 @@ updates:
       interval: monthly
     groups:
       actions:
-        patterns: ['*']
+        update-types: [minor, patch]
+      actions-major:
+        update-types: [major]
 
+  # Nothing in CI installs or runs this. A green check on one of these pull
+  # requests means the JavaScript still passes, which was never in question —
+  # so these are read by a person and verified by running the pipeline, not
+  # merged on a tick. Majors are separated for the same reason as above, and
+  # pyproj is worth watching in particular: 3.8 raised its floor to Python
+  # 3.12, which makes the pipeline uninstallable on 3.11 rather than merely
+  # different.
   - package-ecosystem: pip
     directory: /pipeline
     schedule:
       interval: monthly
     groups:
       pipeline:
-        patterns: ['*']
+        update-types: [minor, patch]
+      pipeline-major:
+        update-types: [major]
