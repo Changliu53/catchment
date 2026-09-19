@@ -1,0 +1,53 @@
+# Dependency updates, batched rather than one pull request per package.
+#
+# Ungrouped Dependabot on a project this size opens a dozen pull requests a
+# week, each of which has to be read, and the reading is what stops happening
+# first. Grouped updates arrive as one pull request per ecosystem that CI has
+# either passed or failed as a unit — which is the question actually being
+# asked.
+#
+# CI here runs lint, typecheck, unit tests against a Postgres service
+# container, and the full Playwright suite against a production build, so a
+# green update pull request is a real signal rather than a passing install.
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      # Patch and minor together: these are the ones that should merge on a
+      # green build without a conversation.
+      routine:
+        update-types: [minor, patch]
+      # Majors, separately and one at a time. The two that have already caused
+      # trouble here — maplibre-gl v6's worker chunk, and TypeScript 7 against
+      # typescript-eslint — were both major bumps that installed cleanly and
+      # broke something no install step could see.
+      major:
+        update-types: [major]
+    ignore:
+      # Pinned deliberately. v6 loads its Web Worker as a separate chunk that
+      # did not survive bundling, which drew an empty map with no error
+      # anywhere. See docs/decisions/0006-maplibre-v5.md before lifting this.
+      - dependency-name: maplibre-gl
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ['*']
+
+  - package-ecosystem: pip
+    directory: /pipeline
+    schedule:
+      interval: monthly
+    groups:
+      pipeline:
+        patterns: ['*']
