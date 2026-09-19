@@ -358,8 +358,17 @@ presets ship with their plans and never call a model.
 Accounts are off until a database is configured, and need nothing else running:
 
 ```bash
-npm run db:migrate   # applies drizzle/*.sql to DATABASE_URL
+npm run db:migrate   # applies drizzle/*.sql, then says where they landed
+npm run db:status    # just the check
 ```
+
+That second half is not decoration. `drizzle-kit migrate` reports success
+without naming the host it applied to, so a `DATABASE_URL` that is empty,
+stale, or pointing at the wrong environment produces a cheerful message and an
+untouched database. It happened: a production migration went nowhere, and the
+symptom surfaced later as a sign-in button that hung, because the OAuth state
+row had no table to go in. Both commands now print `database: <name> on <host>`
+— never the password — and exit non-zero if a table the app needs is absent.
 
 with `BETTER_AUTH_SECRET` set and a GitHub OAuth app supplying
 `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`. Any Postgres will do — the

@@ -12,7 +12,8 @@
     "start": "next start",
     "test:e2e": "playwright test",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate && node scripts/db-status.mjs",
+    "db:status": "node scripts/db-status.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.126.0",
