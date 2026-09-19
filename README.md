@@ -8,7 +8,7 @@ data, and drawn as a map.
 
 > Which flood-exposed neighbourhoods have no supermarket within a kilometre?
 
-![Income compared between block groups above and below 50% floodplain coverage: the statistics and the audit trail on the left, and a two-channel map on the right where colour is income and the orange outline is the floodplain group](docs/hero.png)
+![Income compared between block groups above and below 50% floodplain coverage: on the left the statistics, the audit trail, and the matching block groups as a table; on the right a two-channel map where colour is income and the orange outline is the floodplain group](docs/hero.png)
 
 Google Maps can tell you where a supermarket is. It cannot express _"more than
 half of this area sits in the 100-year floodplain **and** its centre is over a
