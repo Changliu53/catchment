@@ -1,4 +1,5 @@
 *.pyc
+.DS_Store
 .env
 .env.local
 .next/
@@ -11,9 +12,9 @@ node_modules/
 raw/
 tsconfig.tsbuildinfo
 venv/
+
+# playwright
 /test-results/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
-.vercel
-.env*
