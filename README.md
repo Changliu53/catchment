@@ -37,7 +37,9 @@ If you read nothing else:
   a guess about what it measures.
 - **The UI was measured, not eyeballed.** The map once had a height of exactly
   zero on a 390px screen. That is now asserted at five widths with touch
-  emulation.
+  emulation — and every number the map holds is also a server-rendered table,
+  so the answer is reachable by keyboard, by screen reader, and with
+  JavaScript switched off.
 - **The language model writes a plan; it never touches the data.** Eight field
   names, five operations, a bounded step count. Correctness lives in a pure
   function that is tested without a model.
@@ -365,6 +367,23 @@ every page is the worst place to let an exception escape. `e2e/degraded.spec.ts`
 runs that exact half-configured environment, and reverting either fix turns it
 red.
 
+**The page stopped working without JavaScript, and the test did not notice.**
+Making the status codes correct meant replacing `app/loading.tsx` with a
+Suspense boundary inside the page. That works — until the render does not
+finish before the first flush, at which point React streams the fallback and
+reveals the real content with an inline script. With scripting off that script
+never runs, so the page sits on "Working out the answer." for ever while the
+answer is in the HTML, inside a hidden div.
+
+The end-to-end suite was green for it the whole time. The render was finishing
+before the flush, so React never emitted a fallback, so the property held — by
+luck rather than by construction. Adding the results table made the render
+heavier, the flush came first, and a claim the README leads with broke without
+a line of that claim's code changing. There is no boundary now: the answer is
+rendered before anything is sent, which costs a free-text question its skeleton
+and buys the page working at all for someone without JavaScript. The test
+asserts the fallback is _absent_, which is the assertion that was missing.
+
 **A check that had stopped checking.** `npm run typecheck` ran `tsc` against
 whatever `.next/types` happened to contain. With no `.next` at all — exactly
 what CI has — Next's generated route declarations are absent and every `Link`
@@ -453,6 +472,11 @@ supermarket across a bayou with no bridge is not within 800m of anything. ACS
 estimates carry margins of error that this project does not currently surface.
 Income is top-coded at $250,001. And the results describe a distribution: they
 show where flooding and poor access coincide, not that either causes the other.
+
+Every number the analysis produces is in the table under the answer, but the
+map itself is still pointer-only: there is no keyboard way to move focus
+between block groups on the canvas. The table is the accessible path, not an
+accessible map.
 
 There is no error tracking or structured logging yet. Every fault listed above
 was found by a person using the site, which is exactly the argument for adding
