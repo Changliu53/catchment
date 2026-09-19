@@ -17,7 +17,7 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { missingAuthConfig } from '@/lib/auth';
+import { deploymentOrigins, missingAuthConfig } from '@/lib/auth';
 
 const VARS = [
   'DATABASE_URL',
@@ -75,5 +75,59 @@ describe('missingAuthConfig', () => {
 
     setAll();
     expect(missingAuthConfig()).toEqual([]);
+  });
+});
+
+/**
+ * The hostnames a sign-in may legitimately come from.
+ *
+ * Better Auth trusts only `BETTER_AUTH_URL` by default, which is correct and
+ * is also a trap on Vercel: one deployment answers on its production domain,
+ * a branch alias and a unique per-deployment URL. Opening the app by any of
+ * the others and pressing sign in returned `403 INVALID_ORIGIN` — a hostname
+ * problem wearing the costume of a broken button.
+ */
+describe('deploymentOrigins', () => {
+  const VERCEL = ['VERCEL_PROJECT_PRODUCTION_URL', 'VERCEL_BRANCH_URL', 'VERCEL_URL'] as const;
+  const before = new Map(VERCEL.map((v) => [v, process.env[v]]));
+
+  afterEach(() => {
+    for (const [name, value] of before) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  });
+
+  it('is empty off Vercel, so nothing extra is trusted', () => {
+    for (const name of VERCEL) delete process.env[name];
+    expect(deploymentOrigins()).toEqual([]);
+  });
+
+  it('turns Vercel bare hostnames into origins', () => {
+    // Vercel supplies these without a scheme, and an entry without one never
+    // matches an Origin header.
+    process.env['VERCEL_PROJECT_PRODUCTION_URL'] = 'catchment-two.vercel.app';
+    process.env['VERCEL_BRANCH_URL'] = 'catchment-git-main-acme.vercel.app';
+    process.env['VERCEL_URL'] = 'catchment-abc123-acme.vercel.app';
+
+    expect(deploymentOrigins()).toEqual([
+      'https://catchment-two.vercel.app',
+      'https://catchment-git-main-acme.vercel.app',
+      'https://catchment-abc123-acme.vercel.app',
+    ]);
+  });
+
+  it('leaves a value that already has a scheme alone', () => {
+    for (const name of VERCEL) delete process.env[name];
+    process.env['VERCEL_URL'] = 'https://catchment-abc123-acme.vercel.app';
+
+    expect(deploymentOrigins()).toEqual(['https://catchment-abc123-acme.vercel.app']);
+  });
+
+  it('skips the ones that are not set rather than emitting holes', () => {
+    for (const name of VERCEL) delete process.env[name];
+    process.env['VERCEL_URL'] = 'catchment-abc123-acme.vercel.app';
+
+    expect(deploymentOrigins()).toEqual(['https://catchment-abc123-acme.vercel.app']);
   });
 });

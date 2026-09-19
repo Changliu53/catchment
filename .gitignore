@@ -1,8 +1,10 @@
 *.pyc
+.DS_Store
 .env
 .env.local
 .next/
 .venv/
+.vercel/
 __pycache__/
 _to_delete/
 build/blockgroups.geojson
@@ -11,9 +13,9 @@ node_modules/
 raw/
 tsconfig.tsbuildinfo
 venv/
+
+# playwright
 /test-results/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
-.vercel
-.env*

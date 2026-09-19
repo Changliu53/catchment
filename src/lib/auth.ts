@@ -53,9 +53,38 @@ export function missingAuthConfig(): string[] {
   return REQUIRED.filter((name) => !process.env[name]);
 }
 
+/**
+ * The other hostnames this same deployment is served at.
+ *
+ * Better Auth refuses a sign-in whose `Origin` is not trusted, and by default
+ * the only trusted origin is `BETTER_AUTH_URL`. That is the right default and
+ * it is also a trap on Vercel, where one deployment answers on several names:
+ * the project's production domain, a branch alias, and a unique per-deployment
+ * URL. Open the app by any of those and the sign-in POST comes back
+ * `403 {"code":"INVALID_ORIGIN"}` — which is what happened, and which looks
+ * nothing like a hostname problem from the outside.
+ *
+ * These come from Vercel's own environment, so the list is exactly the names
+ * Vercel serves this project at and nothing else; it is not a wildcard. The
+ * OAuth callback is still built from `BETTER_AUTH_URL`, so whichever name you
+ * start on, GitHub is handed the one address registered with it and you finish
+ * on the canonical host.
+ */
+export function deploymentOrigins(): string[] {
+  return [
+    process.env.VERCEL_PROJECT_PRODUCTION_URL,
+    process.env.VERCEL_BRANCH_URL,
+    process.env.VERCEL_URL,
+  ]
+    .filter((host): host is string => Boolean(host))
+    .map((host) => (host.startsWith('http') ? host : `https://${host}`));
+}
+
 function build() {
   return betterAuth({
     database: drizzleAdapter(db(), { provider: 'pg', schema }),
+
+    trustedOrigins: deploymentOrigins(),
 
     socialProviders: {
       github: {
