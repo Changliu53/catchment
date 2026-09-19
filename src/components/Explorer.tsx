@@ -39,9 +39,11 @@ export interface ExplorerProps {
   me: Viewer | null;
   /** Set when this view *is* a saved analysis, reached by its share link. */
   saved?: { slug: string; title: string; mine: boolean };
+  /** Absolute origin of this request, so the panel can show a copyable link. */
+  origin?: string;
 }
 
-export default async function Explorer({ preset, q, me, saved }: ExplorerProps) {
+export default async function Explorer({ preset, q, me, saved, origin }: ExplorerProps) {
   const accounts = accountsEnabled();
   const asked = Boolean(preset || q?.trim());
 
@@ -160,6 +162,7 @@ export default async function Explorer({ preset, q, me, saved }: ExplorerProps) 
             presetId={preset}
             question={q}
             saved={saved}
+            origin={origin}
           />
         )}
 

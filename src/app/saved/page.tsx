@@ -9,6 +9,9 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { deleteAnalysis } from '@/app/actions';
+import SubmitButton from '@/components/SubmitButton';
+import Toast from '@/components/Toast';
+import { FLASH_PARAM, flashFor } from '@/lib/flash';
 import { listForUser, pathFor, questionFor } from '@/lib/saved';
 import { viewer } from '@/lib/session';
 
@@ -29,13 +32,18 @@ export const dynamic = 'force-dynamic';
 
 const when = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium' });
 
-export default async function Saved() {
-  const me = await viewer();
+export default async function Saved({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const [me, query] = await Promise.all([viewer(), searchParams]);
   // Nothing here is meaningful signed out, and there is no public version of
   // "your saved analyses" to fall back to.
   if (!me) redirect('/');
 
   const rows = await listForUser(me.id);
+  const flash = flashFor(query[FLASH_PARAM]);
 
   return (
     <main className="mx-auto min-h-dvh max-w-2xl p-6">
@@ -92,17 +100,27 @@ export default async function Saved() {
                     is the wrong way round: the list is where you tidy up. Two
                     steps because it cannot be undone, and a native <details>
                     rather than confirm() so it still works without
-                    JavaScript. */}
-                <details>
+                    JavaScript.
+
+                    The trigger's label swaps on [open]. Without that, the open
+                    state showed "Delete" directly above a second button also
+                    saying "Delete" — a destructive control apparently offered
+                    twice, with no way back out. It is the trigger that becomes
+                    the cancel, which is where a reader reaches. */}
+                <details className="group">
                   <summary className="cursor-pointer list-none text-xs text-slate-400 underline-offset-2 hover:text-red-700 hover:underline">
-                    Delete
+                    <span className="group-open:hidden">Delete</span>
+                    <span className="hidden group-open:inline">Cancel</span>
                   </summary>
                   <form action={deleteAnalysis} className="mt-1 flex items-center gap-2">
                     <input type="hidden" name="slug" value={row.slug} />
                     <span className="text-[11px] text-slate-500">Cannot be undone.</span>
-                    <button className="rounded border border-red-300 px-2 py-0.5 text-[11px] font-medium text-red-700 transition hover:bg-red-50">
+                    <SubmitButton
+                      pending="Deleting"
+                      className="rounded border border-red-300 px-2 py-0.5 text-[11px] font-medium text-red-700 transition hover:bg-red-50"
+                    >
                       Delete
-                    </button>
+                    </SubmitButton>
                   </form>
                 </details>
               </div>
@@ -110,6 +128,8 @@ export default async function Saved() {
           ))}
         </ul>
       )}
+
+      {flash ? <Toast message={flash} dismissHref="/saved" /> : null}
     </main>
   );
 }

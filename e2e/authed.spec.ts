@@ -109,12 +109,29 @@ test('save, share, rename, delete', async ({ page }) => {
 
   // Saving lands on the share link itself, because that link is the thing
   // being made — not back on the map with a toast to go hunting for.
-  await page.waitForURL(/\/a\/[a-z0-9]+$/);
-  const shareUrl = page.url();
-  const slug = shareUrl.split('/a/')[1]!;
+  await page.waitForURL(/\/a\/[a-z0-9]+(\?.*)?$/);
+  const slug = new URL(page.url()).pathname.split('/a/')[1]!;
+  const shareUrl = new URL(`/a/${slug}`, page.url()).toString();
 
   await expect(page.getByText('Saved analysis')).toBeVisible({ timeout: SHARE_ROUTE_TIMEOUT });
   await expect(page.getByText(/of \d[\d,]* block groups/)).toBeVisible();
+
+  // The confirmation is server-rendered, so it is in the HTML rather than
+  // assembled by a client-side toast queue — which is what lets it be
+  // announced and lets it survive with scripting off.
+  await expect(page.getByText(/^Saved\./)).toBeVisible();
+
+  // --- the link is the point --------------------------------------------
+  // This panel used to offer Rename and Delete and nothing else, while the
+  // sentence that got people to sign in promised "a link you can share". The
+  // link existed only in the address bar.
+  const link = page.getByLabel(/anyone with this link/i);
+  await expect(link).toHaveValue(shareUrl);
+  // An absolute URL, not a path: a path is not something you can paste.
+  await expect(link).toHaveValue(/^https?:\/\//);
+  // And never the flashed URL, or every reader of the link would be told
+  // "Saved." as though they had done it.
+  await expect(link).not.toHaveValue(/[?]done=/);
 
   // --- the link is public ------------------------------------------------
   const stranger = await page.context().browser()!.newContext();
@@ -137,27 +154,43 @@ test('save, share, rename, delete', async ({ page }) => {
 
   // --- it appears in the list -------------------------------------------
   await page.goto('/saved');
-  const row = page.locator('li', { hasText: 'Grocery deserts to revisit' });
-  await expect(row).toBeVisible();
+  const listed = page.locator('li', { hasText: 'Grocery deserts to revisit' });
+  await expect(listed).toBeVisible();
   // The question, not the URL parameters.
-  await expect(row).toContainText('Which flood-exposed neighbourhoods have no supermarket');
-  await expect(row).not.toContainText('%20');
+  await expect(listed).toContainText('Which flood-exposed neighbourhoods have no supermarket');
+  await expect(listed).not.toContainText('%20');
 
   // --- rename ------------------------------------------------------------
+  // Behind a disclosure now. Renaming is occasional; sharing is why the row
+  // exists, so the link gets the space and this gets a summary.
   await page.goto(`/a/${slug}`);
   const name = page.getByLabel('Analysis name');
+  await expect(name).toBeHidden();
+  await page.getByText('Rename this analysis', { exact: true }).click();
   await name.fill('Renamed from the share page');
   await page.getByRole('button', { name: /rename/i }).click();
-  await page.waitForURL(new RegExp(`/a/${slug}$`));
+  await page.waitForURL(new RegExp(`/a/${slug}(\\?.*)?$`));
+  await expect(page.getByText(/^Name updated\./)).toBeVisible({ timeout: SHARE_ROUTE_TIMEOUT });
 
   await page.goto('/saved');
   await expect(page.getByText('Renamed from the share page')).toBeVisible();
 
   // --- delete ------------------------------------------------------------
   // Two steps on purpose; the first only opens the confirmation.
-  await page.getByRole('group').filter({ hasText: 'Delete' }).first().click();
-  await page.getByRole('button', { name: /^delete$/i }).click();
-  await page.waitForURL(/\/saved$/);
+  const row = page.getByRole('group').filter({ hasText: 'Delete' }).first();
+  const trigger = row.locator('summary');
+  await trigger.click();
+
+  // The trigger becomes the way out. Without this the open state showed
+  // "Delete" directly above a second button also saying "Delete" — the same
+  // destructive word twice, and no way back. The two spans are both in the
+  // DOM; which one is visible is the whole assertion.
+  await expect(trigger.getByText('Cancel', { exact: true })).toBeVisible();
+  await expect(trigger.getByText('Delete', { exact: true })).toBeHidden();
+
+  await row.getByRole('button', { name: /^delete$/i }).click();
+  await page.waitForURL(/\/saved(\?.*)?$/);
+  await expect(page.getByText(/^Deleted\./)).toBeVisible();
 
   await expect(page.getByText('Renamed from the share page')).toHaveCount(0);
 
@@ -167,6 +200,54 @@ test('save, share, rename, delete', async ({ page }) => {
 
   // And the share link stops working, rather than 500ing on a missing row.
   expect((await page.request.get(`/a/${slug}`)).status()).toBe(404);
+});
+
+test('the whole flow still works with JavaScript switched off', async ({ browser, baseURL }) => {
+  // Three client components were added to this panel to make it feel less
+  // inert — a pending state on the buttons, a Copy button, a toast. Each one
+  // is an enhancement on top of what the server sent, and this is the test
+  // that says so rather than the comment claiming it.
+  //
+  // What must survive: the link is in the HTML, saving and deleting are plain
+  // form posts, and the confirmation after each is server-rendered.
+  const context = await browser.newContext({ javaScriptEnabled: false, baseURL });
+  await signIn(context, 0);
+
+  try {
+    const page = await context.newPage();
+    await stubBasemap(page);
+
+    await page.goto('/?preset=densest');
+    await page.getByLabel('Name for this analysis').fill('Saved without scripting');
+    await page.getByRole('button', { name: /^save$/i }).click();
+
+    await page.waitForURL(/\/a\/[a-z0-9]+/);
+    const slug = new URL(page.url()).pathname.split('/a/')[1]!;
+
+    // The link, which is the promise, is in the server's HTML — not assembled
+    // by the Copy button that cannot run here.
+    await expect(page.getByLabel(/anyone with this link/i)).toHaveValue(
+      new URL(`/a/${slug}`, page.url()).toString(),
+    );
+    // And no Copy button, rather than a dead one. A button that silently does
+    // nothing is worse than an honest absence.
+    await expect(page.getByRole('button', { name: /^copy$/i })).toHaveCount(0);
+
+    // The confirmation too: it is a search parameter the server rendered, so
+    // it is readable with no script to build it.
+    await expect(page.getByText(/^Saved\./)).toBeVisible();
+
+    // Two-step delete, with <details> doing the work the browser gives away.
+    await page.getByText('Delete this analysis').click();
+    await page.getByRole('button', { name: /^delete$/i }).click();
+    await page.waitForURL(/\/saved/);
+    await expect(page.getByText(/^Deleted\./)).toBeVisible();
+
+    const { rows } = await db.query('select 1 from saved_analysis where slug = $1', [slug]);
+    expect(rows).toHaveLength(0);
+  } finally {
+    await context.close();
+  }
 });
 
 test('a stranger is offered nothing, and the row survives their visit', async ({ page }) => {

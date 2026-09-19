@@ -30,3 +30,26 @@ body {
   color: var(--color-ink);
   font-feature-settings: 'tnum' 1;
 }
+
+/*
+ * The confirmation after a write.
+ *
+ * A keyframe rather than a transition because the element is inserted already
+ * in its final state — there is no "before" for a transition to run from. The
+ * component honours prefers-reduced-motion through Tailwind's motion-reduce
+ * variant, so this is the animated path only.
+ */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@utility animate-toast-in {
+  animation: toast-in 180ms ease-out;
+}

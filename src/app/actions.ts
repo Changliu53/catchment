@@ -32,6 +32,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
 import { MAX_QUESTION_LENGTH } from '@/lib/answer';
+import { withFlash } from '@/lib/flash';
 import { createFor, deleteFor, pathFor, renameFor } from '@/lib/saved';
 import { viewer } from '@/lib/session';
 
@@ -90,10 +91,10 @@ export async function saveAnalysis(form: FormData): Promise<void> {
   });
 
   revalidatePath('/saved');
-  // Straight to the share link, because that link is the thing being made.
-  // Landing back on the same map with a toast would leave the reader to go
-  // looking for the URL they just created.
-  redirect(pathFor(slug));
+  // Straight to the share link, because that link is the thing being made —
+  // and the destination now shows it, rather than leaving the reader to find
+  // the URL they just created in the address bar.
+  redirect(withFlash(pathFor(slug), 'saved'));
 }
 
 export async function renameAnalysis(form: FormData): Promise<void> {
@@ -106,7 +107,7 @@ export async function renameAnalysis(form: FormData): Promise<void> {
   if (!(await renameFor(me.id, parsed.data.slug, parsed.data.title))) notFound();
 
   revalidatePath('/saved');
-  redirect(pathFor(parsed.data.slug));
+  redirect(withFlash(pathFor(parsed.data.slug), 'renamed'));
 }
 
 export async function deleteAnalysis(form: FormData): Promise<void> {
@@ -119,5 +120,8 @@ export async function deleteAnalysis(form: FormData): Promise<void> {
   if (!(await deleteFor(me.id, parsed.data.slug))) notFound();
 
   revalidatePath('/saved');
-  redirect('/saved');
+  // To the list, not back to a page whose row no longer exists. The list is
+  // also where the reader can see that it is gone, which is the confirmation
+  // that matters more than the message.
+  redirect(withFlash('/saved', 'deleted'));
 }
