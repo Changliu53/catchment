@@ -63,8 +63,31 @@ updates:
     directory: /pipeline
     schedule:
       interval: monthly
+    # Only rewrite a specifier when the new version does not already satisfy
+    # it. Without this, pip's default opens a pull request every time a patch
+    # ships, to raise a floor that was never keeping anything out: `~=3.2`
+    # already permits 3.3, so "update psycopg from ~=3.2 to ~=3.3" changes
+    # which versions install by exactly nothing. Two such pull requests arrived
+    # within minutes of tightening this file, which is how the setting was
+    # found.
+    #
+    # The consequence is deliberate and worth stating: because the specifiers
+    # here pin the major, a new minor or patch now arrives with no pull request
+    # at all. It is not missed — the specifier already allows it, so it is what
+    # `pip install -r requirements.txt` resolves to, and the `pipeline` job
+    # installs fresh on every push, so the newest permitted version is the one
+    # CI actually exercises. What still opens a pull request is a major, which
+    # the specifier blocks, and which is exactly when a person should look.
+    versioning-strategy: increase-if-necessary
     groups:
       pipeline:
         update-types: [minor, patch]
       pipeline-major:
         update-types: [major]
+    ignore:
+      # 3.8 raises the Python floor to 3.12, which pip calls a minor release
+      # and anyone on 3.11 experiences as a refusal to install. Lifting this is
+      # a decision about which Python the pipeline requires — see the comment
+      # in pipeline/requirements.txt — not something to merge on a tick.
+      - dependency-name: pyproj
+        versions: ['>=3.8']
