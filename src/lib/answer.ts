@@ -133,7 +133,30 @@ export async function answerFor({ presetId, question, clientKey }: Ask): Promise
   if (presetId) {
     const preset = PRESET_BY_ID.get(presetId);
     if (!preset) return { ok: false, kind: 'unknown-preset' };
-    return run(preset.plan, 'preset', preset.reading);
+
+    // Presets go through the validator too, and that is not ceremony. The
+    // header above claims a plan from any source is validated identically
+    // before it runs; it used to be false, because this branch handed
+    // `preset.plan` straight to the executor. A claim like that is only worth
+    // making if nothing is exempt from it — and the exemption was on the path
+    // most visitors take.
+    //
+    // Reaching the failure branch would mean a preset shipped broken, which is
+    // a build-time fault, so `presets.test.ts` asserts every one of them
+    // validates. This is the belt: cheap (the validator is pure), and it keeps
+    // a malformed plan away from the executor even if the test were deleted.
+    const verdict = validatePlan(preset.plan);
+    if (!verdict.ok) {
+      console.error(`preset "${preset.id}" does not validate`, verdict);
+      return {
+        ok: false,
+        kind: 'unsupported',
+        reason: 'This preset question is temporarily unavailable.',
+        suggestion: 'Try another preset, or ask the question in your own words.',
+      };
+    }
+
+    return run(verdict.plan, 'preset', preset.reading);
   }
 
   const asked = question?.trim();
