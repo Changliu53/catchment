@@ -53,9 +53,9 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -102,7 +102,7 @@ jobs:
 
       - name: Upload Playwright report
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: playwright-report/
@@ -132,7 +132,7 @@ jobs:
       pull-requests: write
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       # No `vercel build` here: Vercel builds remotely, which is what gives the
       # deployment the project's own environment variables. DATABASE_URL and
@@ -153,7 +153,7 @@ jobs:
       # conversation under a list of dead URLs.
       - name: Comment the preview URL
         continue-on-error: true
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const marker = '<!-- preview-url -->';
@@ -178,7 +178,7 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Deploy production
         run: |
