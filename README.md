@@ -2,11 +2,13 @@
 
 **[Live demo](https://catchment-two.vercel.app)** · [![CI](https://github.com/Changliu53/catchment/actions/workflows/ci.yml/badge.svg)](https://github.com/Changliu53/catchment/actions/workflows/ci.yml)
 
-A full-stack analysis tool for Harris County, Texas. Ask a question in plain
-English; the answer is computed over 2,830 census block groups of flood,
-income and service-access data and drawn as a choropleth.
+Ask a question in plain English about Harris County, Texas. The answer is
+computed over 2,830 census block groups of flood, income and service-access
+data, and drawn as a map.
 
 > Which flood-exposed neighbourhoods have no supermarket within a kilometre?
+
+![The analysis view: the answer, its audit trail, and the matching block groups on the map](docs/hero.png)
 
 Google Maps can tell you where a supermarket is. It cannot express *"more than
 half of this area sits in the 100-year floodplain **and** its centre is over a
@@ -17,6 +19,31 @@ Next.js 16 App Router, React 19, TypeScript in strict mode, Postgres with
 PostGIS, GitHub sign-in for keeping and sharing an analysis, and a test suite —
 unit, integration against a real database, and end-to-end against a production
 build — that runs before anything deploys.
+
+## The short version
+
+If you read nothing else:
+
+- **The question is in the URL and the answer is in the HTML.** The page is a
+  Server Component that runs the analysis and ships the result in the first
+  response. Nothing fetches. Apart from the map, it works with JavaScript
+  switched off.
+- **Authorization is a condition in the query, not a check after it**, and that
+  claim is tested against a real Postgres in CI rather than a mock — because a
+  mock agrees with whatever the code asks it, including a query missing half
+  its conditions.
+- **The tests include negative controls.** One spec removes the Web Worker and
+  asserts the map renders *nothing*. A regression test that has never failed is
+  a guess about what it measures.
+- **The UI was measured, not eyeballed.** The map once had a height of exactly
+  zero on a 390px screen. That is now asserted at five widths with touch
+  emulation.
+- **The language model writes a plan; it never touches the data.** Eight field
+  names, six operations, a bounded step count. Correctness lives in a pure
+  function that is tested without a model.
+
+Things that went wrong, and how each was found, are collected in
+[What broke](#what-broke-and-how-it-was-found) rather than sprinkled through.
 
 ## Architecture
 
@@ -80,6 +107,10 @@ server and handed to both, so the legend and the colours cannot disagree.
 `DATABASE_URL` and `ANTHROPIC_API_KEY` exist only on the server. The browser
 receives a rendered page and a GeoJSON payload, and nothing else.
 
+<p align="center">
+  <img src="docs/mobile.png" alt="The same analysis at 390px: controls above, map below, legend collapsed to a single bar" width="320">
+</p>
+
 ## Decisions worth a look
 
 **The database is not on the request path.** The dataset is 2,830 rows and
@@ -129,8 +160,11 @@ which would disagree with the server-rendered HTML.
 
 ## Accounts and saved analyses
 
-Sign in with GitHub, keep a question, get a link anyone can open. It is a small
-feature with a few decisions in it worth defending.
+Sign in with GitHub, keep a question, get a link anyone can open.
+
+<p align="center">
+  <img src="docs/saved.png" alt="The saved list: each analysis with the question that produced it, and a two-step delete" width="640">
+</p>
 
 **Accounts are optional by construction.** `getAuth()` returns `null` unless
 every variable sign-in needs is present, so a deployment without them runs the
@@ -140,44 +174,6 @@ runs in, with `DATABASE_URL` blanked in `playwright.config.ts` so a developer
 with one exported in their shell cannot accidentally test a different
 application. The alternative — throwing at startup — turns "clone and run" into
 "clone, sign up for a database, then run".
-
-**The first version of that predicate took production down, which is why it is
-now four variables.** It tested `DATABASE_URL` alone — reasonable in general,
-wrong *here*, because the block-group data lives in Postgres too, so every
-deployment has a connection string. Accounts therefore switched themselves on
-in an environment that had none of the rest of the configuration, Better Auth
-refused to start without a secret, and that error came out of the session read
-— which happens on every page. Every route returned 500, including the landing
-page, which needs no account at all. Two fixes, because two things were wrong:
-the predicate now names what is missing, and `viewer()` treats any failure as
-"signed out" and logs it, because the one call made on every page is the worst
-possible place to let an exception escape. A second Playwright server runs that
-exact half-configured environment (`e2e/degraded.spec.ts`), and reverting
-either fix turns it red.
-
-**Trusted origins are the deployment's own hostnames, not just one.** Better
-Auth rejects a sign-in whose `Origin` is not trusted, and by default the only
-trusted origin is `BETTER_AUTH_URL`. Correct in general; a trap on Vercel,
-where one deployment answers on its production domain, a branch alias and a
-unique per-deployment URL. Opening the app by any of the others and pressing
-sign in returned `403 {"code":"INVALID_ORIGIN"}` — a hostname problem wearing
-the costume of a broken button. The list now comes from Vercel's own
-environment variables, so it is exactly the names Vercel serves this project
-at and nothing else: an unrelated origin is still refused. The OAuth callback
-is still built from `BETTER_AUTH_URL`, so whichever name you start on, GitHub
-is handed the single address registered with it.
-
-**Sign-in reports its own failure, which it did not at first.** Signing in with
-a social provider is not one hop: the server records the OAuth state in a row
-*before* it can hand back a URL to redirect to. With the tables not yet
-migrated that write failed, the endpoint answered 500 with an empty body, and
-the button sat on "Opening GitHub…" indefinitely — indistinguishable from a
-slow network, so a reader waits and then presses it again. The first attempt at
-a fix was itself wrong: it keyed on `error.message`, which was `undefined`
-here, so it concluded nothing had gone wrong. The presence of the error is what
-is checked now, and a third Playwright server — configured for accounts, with
-the database refusing connections — clicks the button and asserts it says so
-and becomes usable again.
 
 **Authorization is a condition in the query, not a check after it.** Every
 function in `lib/saved.ts` takes the owner's id and puts it in the `WHERE`
@@ -209,7 +205,9 @@ says so rather than leaving a reader to assume they are seeing a snapshot.
 Actions taking a bare `FormData`, bound to plain `<form action={…}>`, so they
 keep the property the rest of the page has. Each action re-reads the session
 itself — a hidden input claiming who you are is a suggestion, and a Server
-Action is a public endpoint whatever the button looked like.
+Action is a public endpoint whatever the button looked like. Deleting takes two
+steps, and the confirmation is a native `<details>` rather than `confirm()`,
+because an irreversible action is the last place to start requiring JavaScript.
 
 **Sessions live in the database, with a five-minute signed-cookie cache.** A
 stateless JWT would be one fewer moving part and would make sign-out a lie.
@@ -218,17 +216,12 @@ device can survive on another until the cookie expires, which is why the window
 is five minutes rather than five hours. Anonymous requests touch the database
 zero times either way.
 
-**A dead share link returns 404, and this took finding.** The app had an
-`app/loading.tsx`, which puts a Suspense boundary above *every* route beneath
-it. Next then commits the response — status line included — before any page has
-decided what it is, so `notFound()` rendered a 404 page under a **200**, and
-`redirect()` became a client-side hop instead of a 307. Invisible in a browser;
-wrong to every crawler, link checker and unfurler, which for a URL people paste
-into other products is most of the audience. The fix was to stop using the
-routing convention and place the boundary as a component, around the slow part
-and *below* the lookup that decides the status. `e2e/accounts.spec.ts` asserts
-the status codes at the protocol level, because a browser cannot tell the two
-apart.
+**Trusted origins are the deployment's own hostnames, not just one.** On Vercel
+a single deployment answers on its production domain, a branch alias and a
+unique per-deployment URL; the list comes from Vercel's own environment
+variables, so it is exactly those and nothing else. The OAuth callback is still
+built from `BETTER_AUTH_URL`, so whichever name you start on, GitHub is handed
+the single address registered with it.
 
 Each saved analysis also generates its own social card at request time
 (`next/og`), titled with the saved name and captioned with the question, over
@@ -284,14 +277,6 @@ test job brings up a `postgres:17` service container and applies the committed
 migrations to an empty database first, so a migration that only works where the
 table already exists fails there rather than in production.
 
-`typecheck` runs `next typegen` before `tsc`, which is not tidying. Next's typed
-routes live in generated declarations, so `tsc` on a checkout with no `.next`
-directory — exactly what CI has — type-checks every `Link` and `redirect`
-against a route table that does not exist, and passes. A stale `.next` is worse:
-it checks against last build's routes and rejects one that now exists. Both
-failure modes are silent, so the generation is part of the command rather than
-something the environment is trusted to have done.
-
 - **Unit** — the executor on hand-built rows, including the null and tie
   cases; the validator rejecting plans that type-check but mean nothing; the
   classifier; the projection behind the social cards; and an assertion about
@@ -302,29 +287,98 @@ something the environment is trusted to have done.
   These refuse to skip when `CI` is set, and refuse to *run* against a
   `DATABASE_URL` that is not plainly local or named for testing — they delete
   rows, and `npm test` picks up whatever the shell happens to be holding.
-- **End-to-end** — a real production build against the sampled dataset, so the
-  suite needs no database and no API key while still exercising the real
-  analysis over real geometry. It asserts that the answer is in the first HTML
-  response and survives with JavaScript disabled, that the map renders exactly
-  the block groups the page says matched, that the layout holds from 390px to
-  1680px, that a dead share link answers 404 and a signed-out visit to `/saved`
-  answers 307, and — with touch emulation — that tapping a block group opens
-  its numbers. Two more servers run the same build in environments that broke
-  it: one half-configured — a connection string and nothing else, the state
-  that once took production down — asserting every public route still answers
-  and none answers 500; one fully configured with the database refusing
-  connections, asserting that pressing sign-in reports the failure and releases
-  the button instead of sitting on "Opening GitHub…" forever.
+- **End-to-end**, across four servers running the same production build in four
+  different environments:
+
+  | Server | Environment | What it proves |
+  | --- | --- | --- |
+  | default | no database | the analysis, the map, the layout from 390px to 1680px, JavaScript disabled, touch |
+  | degraded | a connection string and nothing else | every public route still answers, and none answers 500 |
+  | outage | accounts configured, database refusing connections | pressing sign-in reports the failure instead of hanging |
+  | authed | accounts working, real Postgres | save → share → rename → delete, and what a stranger is offered |
+
 - **A negative control** — one spec removes the Web Worker and asserts the map
   renders *nothing*. A regression test that has never failed is a guess about
   what it measures; this one reproduces the original fault and watches the
   probe go to zero.
 
-That middle layer exists because of a real incident. A MapLibre worker chunk
-did not survive bundling, so the map drew nothing while the sources, the
-layers, the paint expressions and the console all looked correct — a fault
-invisible to every check that did not ask the map itself what it had rendered.
-`e2e/map.spec.ts` carries the full story in its header.
+The signed-in server creates its session the way the server would — a row in
+`session`, and a cookie signed with the same secret — because real GitHub OAuth
+needs a third party's consent screen and a suite should not depend on one. What
+that therefore does not cover is the OAuth round trip itself, and the spec says
+so: a test that looks like it covers sign-in and does not would be worse than
+none.
+
+`typecheck` runs `next typegen` before `tsc`, which is not tidying — see
+[What broke](#what-broke-and-how-it-was-found).
+
+## What broke, and how it was found
+
+Five faults, each with the measurement that found it and the test that now
+stands in its place. They are here rather than in the sections above because
+the design decisions should be readable without them — but they are the part of
+this repository I would most want to be asked about.
+
+**The map drew nothing, and everything looked correct.** A MapLibre worker
+chunk did not survive bundling. The sources, the layers, the paint expressions
+and the console were all fine; the map was blank. Invisible to every check that
+did not ask the map itself what it had rendered, and invisible in `next dev`,
+which served the worker without complaint — so the end-to-end suite runs
+against `next build && next start`, the only configuration in which the failure
+reproduces. `e2e/map.spec.ts` carries the full story, and the negative control
+next to it removes the worker deliberately and watches the probe go to zero.
+
+**Suppressed income was painted as the poorest.** 273 of 2,830 block groups
+have no income figure, and coercing them to zero shaded them as the poorest
+neighbourhoods in the county *and* dragged every quantile break downward — so
+the error reached rows whose data was fine. Found by reading the colour
+expression, then verified against MapLibre's own evaluator: `['==', ['get', f],
+null]` is correct, and the obvious `to-number` sentinel silently never fires.
+
+**A dead share link returned 200.** The app had an `app/loading.tsx`, which
+puts a Suspense boundary above *every* route beneath it. Next then commits the
+response — status line included — before any page has decided what it is, so
+`notFound()` rendered a 404 page under a **200**, and `redirect()` became a
+client-side hop instead of a 307. Invisible in a browser; wrong to every
+crawler, link checker and unfurler, which for a URL people paste into other
+products is most of the audience. The fix was to stop using the routing
+convention and place the boundary as a component, around the slow part and
+*below* the lookup that decides the status. `e2e/accounts.spec.ts` asserts the
+status codes at the protocol level, because a browser cannot tell the two apart.
+
+**An optional feature took the whole site down.** Accounts were made optional
+on the predicate "is `DATABASE_URL` set" — reasonable in general, wrong here,
+because the block-group data lives in Postgres too, so every deployment has a
+connection string. Accounts switched themselves on in an environment that had
+none of the rest of the configuration, Better Auth refused to start without a
+secret, and that error came out of the session read — which happens on every
+page. Every route returned 500, including the landing page, which needs no
+account at all.
+
+The first diagnosis was wrong and is worth recording: the visible error was
+`relation "saved_analysis" does not exist`, which looks exactly like a missing
+migration, but it came from a share-link request in the same batch. Requesting
+only the landing page, and reading the log for that one request, named the
+secret instead. Two fixes: the predicate now names what is missing, and
+`viewer()` treats any failure as "signed out", because the one call made on
+every page is the worst place to let an exception escape. `e2e/degraded.spec.ts`
+runs that exact half-configured environment, and reverting either fix turns it
+red.
+
+**A check that had stopped checking.** `npm run typecheck` ran `tsc` against
+whatever `.next/types` happened to contain. With no `.next` at all — exactly
+what CI has — Next's generated route declarations are absent and every `Link`
+and `redirect` is checked against a route table that does not exist. It passes.
+Verified by removing `.next`, reintroducing an `href="/savedd"` typo, and
+watching it stay green. `next typegen` is now part of the command rather than a
+precondition the environment is trusted to satisfy.
+
+That is the same shape as the integration tests that skip themselves without a
+database, and as a `drizzle-kit migrate` that reports success without naming
+the host it migrated to. All three now refuse: the tests fail in CI rather than
+skip, and `db:migrate` ends by printing the database it reached and exiting
+non-zero if a table is missing. **A check that quietly stops checking reports
+exactly the same green as one that ran.**
 
 ## The language-model layer
 
@@ -382,7 +436,7 @@ symptom surfaced later as a sign-in button that hung, because the OAuth state
 row had no table to go in. Both commands now print `database: <name> on <host>`
 — never the password — and exit non-zero if a table the app needs is absent.
 
-with `BETTER_AUTH_SECRET` set and a GitHub OAuth app supplying
+Accounts also want `BETTER_AUTH_SECRET` and a GitHub OAuth app supplying
 `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`. Any Postgres will do — the
 sessions and saved rows never touch PostGIS. The schema lives in
 `src/db/schema.ts` and the migrations it generates are committed, so the SQL
@@ -400,6 +454,10 @@ estimates carry margins of error that this project does not currently surface.
 Income is top-coded at $250,001. And the results describe a distribution: they
 show where flooding and poor access coincide, not that either causes the other.
 
+There is no error tracking or structured logging yet. Every fault listed above
+was found by a person using the site, which is exactly the argument for adding
+some.
+
 ## Stack
 
 **Application** — TypeScript (strict, with `noUncheckedIndexedAccess`) ·
@@ -411,6 +469,7 @@ Auth (GitHub OAuth, database sessions) · Neon Postgres with PostGIS ·
 Anthropic API
 
 **Testing and delivery** — Vitest (unit and integration against a Postgres
-service container) · Playwright · GitHub Actions gating deployment to Vercel
+service container) · Playwright across four environments · GitHub Actions
+gating deployment to Vercel
 
 **Data pipeline** — Python · GeoPandas · Shapely · PyProj
