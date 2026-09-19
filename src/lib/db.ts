@@ -15,6 +15,9 @@
  * request because no request touches it.
  */
 
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+
 import { neon } from '@neondatabase/serverless';
 
 import type { BlockGroup } from './primitives';
@@ -26,6 +29,31 @@ export interface BlockGroupFeature extends BlockGroup {
 
 let cache: Promise<BlockGroupFeature[]> | null = null;
 
+/**
+ * A second data source, for running with no database at all.
+ *
+ * Opt-in through an environment variable rather than a fallback: silently
+ * serving sample data because a connection string was missing is exactly the
+ * kind of thing that reaches production and is believed. Set
+ * `CATCHMENT_DATA=fixture` and it reads `fixtures/block-groups.json` — a
+ * stratified sample of the real table, cut by `pipeline/make_fixture.py`.
+ *
+ * This is what lets the end-to-end suite run in CI, and lets anyone who clones
+ * the repository see the real thing without Neon credentials. Once the page
+ * renders on the server, tests can no longer intercept an HTTP call the
+ * browser no longer makes, so the data has to be swappable underneath instead.
+ */
+const FIXTURE_PATH = join(process.cwd(), 'fixtures', 'block-groups.json');
+
+function usingFixture(): boolean {
+  return process.env.CATCHMENT_DATA === 'fixture';
+}
+
+async function fetchFixture(): Promise<BlockGroupFeature[]> {
+  const raw = await readFile(FIXTURE_PATH, 'utf8');
+  return JSON.parse(raw) as BlockGroupFeature[];
+}
+
 function connection() {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL is not set');
@@ -33,6 +61,8 @@ function connection() {
 }
 
 async function fetchAll(): Promise<BlockGroupFeature[]> {
+  if (usingFixture()) return fetchFixture();
+
   const sql = connection();
 
   const rows = await sql`

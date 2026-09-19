@@ -22,15 +22,17 @@ deploys.
 ```mermaid
 flowchart TB
   subgraph browser["Browser"]
-    UI["page.tsx<br/>client component"]
-    MAP["MapView<br/>ssr: false, MapLibre GL"]
+    URL["/?preset=... or /?q=..."]
+    MAP["ResultMap<br/>client island, MapLibre GL"]
   end
 
   subgraph server["Vercel — Node runtime"]
-    API["POST /api/query<br/>Route Handler"]
+    PAGE["page.tsx<br/>Server Component"]
+    ANS["answerFor()"]
     VAL["Validation<br/>Zod + semantic checks"]
     EXE["Executor<br/>pure function, no I/O"]
-    MEM[("2,830 rows<br/>held in memory")]
+    MEM[("rows held in memory")]
+    API["/api/query<br/>the same function, as JSON"]
   end
 
   subgraph ext["External"]
@@ -38,22 +40,37 @@ flowchart TB
     LLM["Anthropic API"]
   end
 
-  UI -->|"question or presetId"| API
-  API -->|"new question only"| LLM
+  URL --> PAGE
+  PAGE --> ANS
+  API --> ANS
+  ANS -->|"new question only"| LLM
   LLM --> VAL
-  API --> VAL
+  ANS --> VAL
   VAL --> EXE
   MEM --> EXE
   DB -->|"read once per instance"| MEM
-  EXE -->|"GeoJSON + statistics"| UI
-  UI --> MAP
+  EXE -->|"HTML + GeoJSON"| MAP
 ```
 
-Everything below the browser box runs on the server. `DATABASE_URL` and
-`ANTHROPIC_API_KEY` exist only there; the browser receives a JSON document and
-nothing else. The map is a client-only component (`ssr: false`) because
-MapLibre needs a canvas and a Web Worker, neither of which exists during
-server rendering.
+**The question is in the URL, and the answer is in the HTML.** The page is a
+Server Component: it reads `?preset=` or `?q=`, runs the analysis there, and
+ships the result in the first response. Nothing fetches. A shared link shows
+its answer to anything that can read HTML, and — apart from the map — the app
+works with JavaScript switched off, because the question box is an ordinary
+GET form and the presets are ordinary links.
+
+Measured on the deployed build: a preset answer arrives as one 64 KB HTML
+document containing the headline figures, the statistics table and the audit
+trail. The previous version served 22 KB of shell, then ran the bundle, then
+POSTed for the data.
+
+The only client component is the map island — WebGL, a Web Worker, and the
+hover/selection state that follows a pointer or a tap. Everything else,
+including the legend, is HTML. The classification is computed once on the
+server and handed to both, so the legend and the colours cannot disagree.
+
+`DATABASE_URL` and `ANTHROPIC_API_KEY` exist only on the server. The browser
+receives a rendered page and a GeoJSON payload, and nothing else.
 
 ## Decisions worth a look
 
@@ -70,14 +87,15 @@ budget. A repeated question resolves from an LRU cache. Only a genuinely new
 question reaches the model, and only after the rate limiter agrees. Most
 visitors never get past the first tier.
 
-**Errors name their own cause.** A 503 from this API does not say "something
-went wrong"; if `DATABASE_URL` is missing it says so, and adds that
-environment variables added after a build are not picked up until the next
-one — because that is the actual mistake, and it is invisible from the
-symptom. The client shows the status and a slice of the body rather than
-collapsing everything into "network error", which was a real defect here: a
-wrong model ID and a rejected API key both surfaced as the same useless
-message, pointing at the network.
+**Errors name their own cause.** Every way the analysis can fail is a named
+variant — `unsupported`, `rate-limited`, `model-failed`, `data-unavailable` —
+so a caller never parses a string to work out what happened. The JSON API maps
+each onto a status code; the page maps each onto a panel. If `DATABASE_URL` is
+missing it says so, and adds that environment variables added after a build
+are not picked up until the next one, because that is the actual mistake and
+it is invisible from the symptom. This replaced a version where a wrong model
+ID and a rejected API key both surfaced as the same useless "network error",
+pointing at the network.
 
 **Types hold at the boundary, not just inside it.** Strict TypeScript with
 `noUncheckedIndexedAccess`, and every payload crossing into the executor is
@@ -149,9 +167,11 @@ Both run in CI on every push, and a deploy only happens after they pass.
 - **Unit** — the executor on hand-built rows, including the null and tie
   cases; the validator rejecting plans that type-check but mean nothing; the
   classifier; and an assertion about how `maplibre-gl` packages its Web Worker.
-- **End-to-end** — a real production build with `/api/query` intercepted by a
-  fixture, so the suite needs no database and no API key. It asserts the map
-  renders the features it was given, that the layout holds from 390px to
+- **End-to-end** — a real production build against the sampled dataset, so the
+  suite needs no database and no API key while still exercising the real
+  analysis over real geometry. It asserts that the answer is in the first HTML
+  response and survives with JavaScript disabled, that the map renders exactly
+  the block groups the page says matched, that the layout holds from 390px to
   1680px, and — with touch emulation — that tapping a block group opens its
   numbers.
 - **A negative control** — one spec removes the Web Worker and asserts the map
@@ -190,9 +210,21 @@ npm install
 npm run dev
 ```
 
-Needs `DATABASE_URL` (Neon, with PostGIS and the dataset loaded) and
-`ANTHROPIC_API_KEY`. Without the key the preset questions still work — they
-ship with their plans and never call a model.
+It runs with no credentials at all:
+
+```bash
+CATCHMENT_DATA=fixture npm run dev
+```
+
+That reads `fixtures/block-groups.json` — a stratified sample of the real
+table, cut by `pipeline/make_fixture.py` so the awkward cases survive
+(suppressed income, both sides of the flood threshold). It is the same code
+path over real Harris County geometry, just fewer rows, and it is what the
+end-to-end suite runs against.
+
+For the full dataset, set `DATABASE_URL` (Neon, with PostGIS and the data
+loaded). `ANTHROPIC_API_KEY` is only needed for free-text questions; the
+presets ship with their plans and never call a model.
 
 To rebuild the dataset from scratch: `pipeline/extract.py` → `spatial.py` →
 `analyze.py` → `load_postgis.py`, then `county_outline.py`.
