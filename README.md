@@ -8,7 +8,7 @@ data, and drawn as a map.
 
 > Which flood-exposed neighbourhoods have no supermarket within a kilometre?
 
-![The analysis view: the answer, its audit trail, and the matching block groups on the map](docs/hero.png)
+![Income compared between block groups above and below 50% floodplain coverage: the statistics and the audit trail on the left, and a two-channel map on the right where colour is income and the orange outline is the floodplain group](docs/hero.png)
 
 Google Maps can tell you where a supermarket is. It cannot express *"more than
 half of this area sits in the 100-year floodplain **and** its centre is over a
@@ -108,7 +108,7 @@ server and handed to both, so the legend and the colours cannot disagree.
 receives a rendered page and a GeoJSON payload, and nothing else.
 
 <p align="center">
-  <img src="docs/mobile.png" alt="The same analysis at 390px: controls above, map below, legend collapsed to a single bar" width="320">
+  <img src="docs/mobile.png" alt="The same analysis on a phone: controls above, map below, and the legend collapsed to a single gradient bar" width="320">
 </p>
 
 ## Decisions worth a look
