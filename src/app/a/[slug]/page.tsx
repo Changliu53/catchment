@@ -9,20 +9,21 @@
  * rather than left as a surprise — a reader should not think they are seeing
  * the numbers the sender saw if the pipeline has been re-run since.
  *
- * Two things happen here, and their order is the whole design. The row lookup
- * is awaited by the page itself, so a slug that does not resolve is a real 404
- * — nothing has been flushed yet, and the status line is still ours to set.
- * Only then does the analysis, which may wait on a model, go inside a Suspense
- * boundary. A `loading.tsx` would have inverted that: a boundary above the
- * route commits the response before the page can answer, and a dead share link
- * returns 200 with 404 content.
+ * The row lookup is awaited by the page itself, so a slug that does not
+ * resolve is a real 404 — nothing has been flushed yet, and the status line is
+ * still ours to set. A `loading.tsx` inverted that: a boundary above the route
+ * commits the response before the page can answer, and a dead share link
+ * returned 200 with 404 content.
+ *
+ * There is no Suspense boundary below it either. See `app/page.tsx` for why:
+ * a streamed fallback needs JavaScript to be replaced by the content behind
+ * it, and this page is meant to be readable without any.
  */
 
 import { notFound } from 'next/navigation';
-import { Suspense, cache } from 'react';
+import { cache } from 'react';
 
 import Explorer from '@/components/Explorer';
-import Skeleton from '@/components/Skeleton';
 import { accountsEnabled } from '@/lib/auth';
 import { getBySlug, ownedBy } from '@/lib/saved';
 import { viewer } from '@/lib/session';
@@ -55,17 +56,15 @@ export default async function SharedAnalysis({ params }: { params: Promise<{ slu
   if (!row) notFound();
 
   return (
-    <Suspense key={slug} fallback={<Skeleton />}>
-      <Explorer
-        preset={row.presetId ?? undefined}
-        q={row.question ?? undefined}
-        me={me}
-        saved={{
-          slug: row.slug,
-          title: row.title,
-          mine: me ? await ownedBy(row.slug, me.id) : false,
-        }}
-      />
-    </Suspense>
+    <Explorer
+      preset={row.presetId ?? undefined}
+      q={row.question ?? undefined}
+      me={me}
+      saved={{
+        slug: row.slug,
+        title: row.title,
+        mine: me ? await ownedBy(row.slug, me.id) : false,
+      }}
+    />
   );
 }

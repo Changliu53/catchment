@@ -1,50 +1,46 @@
 /**
  * Value formatting, driven by the field dictionary.
  *
- * Units live in `schema.ts`; this is the one place that turns them into text.
- * A legend without units is decoration, and a number whose unit the reader has
- * to infer is worse than no number.
+ * This file used to hold two copies of knowledge that belongs in `schema.ts`:
+ * a hand-maintained label map, and a switch over field names deciding units.
+ * Adding a field meant editing three places, and forgetting one showed up as a
+ * raw column name in a table header or an unlabelled number in the legend —
+ * quietly, because nothing checks that a legend makes sense.
+ *
+ * Both now live on the `FieldSpec`. What is left here is the part that is
+ * genuinely about presentation rather than about the field: what to show when
+ * there is no value, and what to do with a name the dictionary has never heard
+ * of.
  */
 
 import { FIELDS, type FieldName } from './schema';
 
-const int = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
-const oneDp = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
+/**
+ * Missing is not zero.
+ *
+ * An em dash rather than "0" or "—0—": census income suppression means the
+ * value is unknown, and a table that prints a number there is making one up.
+ */
+export const NO_VALUE = '—';
+
+function spec(field: string) {
+  return FIELDS[field as FieldName];
+}
 
 export function formatValue(field: string, v: number | null | undefined): string {
-  if (v === null || v === undefined || !Number.isFinite(v)) return '—';
+  if (v === null || v === undefined || !Number.isFinite(v)) return NO_VALUE;
 
-  switch (field) {
-    case 'flood_pct':
-    case 'flood_pct_500':
-      return `${oneDp.format(v * 100)}%`;
-    case 'median_income':
-      return `$${int.format(v)}`;
-    case 'dist_grocery_m':
-    case 'dist_park_m':
-      return v >= 1000 ? `${oneDp.format(v / 1000)} km` : `${int.format(v)} m`;
-    case 'area_m2':
-      return `${oneDp.format(v / 1e6)} km²`;
-    case 'pop_density':
-      return `${int.format(v)}/km²`;
-    case 'pop':
-      return int.format(v);
-    default:
-      return int.format(v);
-  }
+  // A field the dictionary does not know is a bug, but printing the raw number
+  // is a better failure than throwing inside a table cell.
+  return spec(field)?.format(v) ?? new Intl.NumberFormat('en-US').format(v);
 }
 
 /** Short human label for a field, for legend titles and table headers. */
 export function labelFor(field: string): string {
-  const labels: Record<string, string> = {
-    pop: 'Population',
-    median_income: 'Median household income',
-    pop_density: 'Population density',
-    flood_pct: 'Area in the 100-year floodplain',
-    flood_pct_500: 'Area in the 0.2% annual chance zone',
-    dist_grocery_m: 'Distance to nearest supermarket',
-    dist_park_m: 'Distance to nearest park',
-    area_m2: 'Area',
-  };
-  return labels[field] ?? FIELDS[field as FieldName]?.name ?? field;
+  return spec(field)?.label ?? field;
+}
+
+/** The unit, for places that show it separately from a value. */
+export function unitFor(field: string): string | null {
+  return spec(field)?.unit ?? null;
 }

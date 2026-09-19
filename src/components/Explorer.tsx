@@ -24,6 +24,7 @@ import Link from 'next/link';
 import AnswerPanel from '@/components/AnswerPanel';
 import Legend from '@/components/Legend';
 import ResultMap from '@/components/ResultMap';
+import ResultsTable from '@/components/ResultsTable';
 import { answerFor, MAX_QUESTION_LENGTH, type Result } from '@/lib/answer';
 import { classify } from '@/lib/classify';
 import { PRESETS } from '@/lib/presets';
@@ -140,6 +141,17 @@ export default async function Explorer({ preset, q, me, saved }: ExplorerProps) 
 
         {failure && <Failed failure={failure} />}
         {answer && <AnswerPanel answer={answer} />}
+        {/* The same rows the map draws, reachable without a pointer. Placed
+            under the answer rather than beside the map: it is the detail
+            behind the summary just above it, and on a phone the map is a
+            separate scroll region entirely. */}
+        {answer && (
+          <ResultsTable
+            features={answer.features}
+            colorBy={colorBy}
+            splitOn={split?.field ?? null}
+          />
+        )}
         {answer && (
           <SaveControls
             accounts={accounts}

@@ -56,6 +56,17 @@ test.describe('server rendering', () => {
     await expect(page.getByText(/of \d[\d,]* block groups/)).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Catchment' })).toBeVisible();
 
+    // No streamed fallback left on screen. This assertion is the one that
+    // matters, and its absence is how a real regression got through: a
+    // Suspense boundary reveals its content with an inline script, so with
+    // scripting off the page sits on the skeleton for ever while the answer
+    // sits in the HTML inside a hidden div. The test above passed anyway,
+    // because the render happened to finish before the first flush — until a
+    // heavier render tipped it over and the property broke with none of its
+    // own code changing.
+    await expect(page.getByText('Working out the answer.')).toHaveCount(0);
+    expect(await page.locator('div[hidden]').count()).toBeLessThanOrEqual(1);
+
     // The presets have to be links, not buttons with handlers, or the page is
     // a dead end without scripting.
     const preset = page.getByRole('link', { name: /no supermarket within a kilometre/i });
