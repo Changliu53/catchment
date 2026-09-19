@@ -115,6 +115,23 @@ receives a rendered page and a GeoJSON payload, and nothing else.
 
 ## Decisions worth a look
 
+Summarised here; the full records — what was rejected, what it costs, and what
+fails if someone quietly undoes it — are in
+[`docs/decisions/`](docs/decisions/).
+
+| Decision                                                 | Full record                                                 |
+| -------------------------------------------------------- | ----------------------------------------------------------- |
+| Three tiers on the answer path, cheapest first           | [0001](docs/decisions/0001-answer-path.md)                  |
+| The dataset is loaded once, not queried per request      | [0002](docs/decisions/0002-data-off-the-request-path.md)    |
+| Failure is a named variant, not a message                | [0003](docs/decisions/0003-failure-is-a-variant.md)         |
+| No Suspense boundary above the answer                    | [0004](docs/decisions/0004-no-suspense-above-the-answer.md) |
+| Accounts degrade; they do not take the site down         | [0005](docs/decisions/0005-accounts-degrade.md)             |
+| maplibre-gl v5, pinned, with a test that explains it     | [0006](docs/decisions/0006-maplibre-v5.md)                  |
+| One field dictionary generates the prompt and the schema | [0007](docs/decisions/0007-one-field-dictionary.md)         |
+| Rate limiting is in memory and per-instance              | [0008](docs/decisions/0008-in-memory-rate-limit.md)         |
+| The built dataset is committed, with a tripwire          | [0009](docs/decisions/0009-derived-data-in-git.md)          |
+| oxlint instead of ESLint                                 | [0010](docs/decisions/0010-oxlint.md)                       |
+
 **The database is not on the request path.** The dataset is 2,830 rows and
 changes only when the pipeline is re-run, so it is fetched once per server
 instance and memoised. A request never waits on Postgres — which also means a
@@ -272,6 +289,7 @@ are wrong by a factor that varies with latitude.
 ```bash
 npm test            # unit, plus integration if DATABASE_URL is set
 npm run test:e2e    # end-to-end, against a production build
+npm run eval        # the model evaluation — needs ANTHROPIC_API_KEY
 ```
 
 Both run in CI on every push, and a deploy only happens after they pass. The
@@ -304,6 +322,13 @@ table already exists fails there rather than in production.
   what it measures; this one reproduces the original fault and watches the
   probe go to zero.
 
+- **Model evaluation** — 30 question → expected-plan cases in `evals/`, scored
+  against the real model by `npm run eval`. The grader is pure and is tested
+  offline on every push, including against deliberately wrong plans, because an
+  eval suite scoring 100% on a broken grader looks exactly like one scoring
+  100% on a working model. [`evals/README.md`](evals/README.md) covers what is
+  measured and why the live run is weekly rather than per-push.
+
 The signed-in server creates its session the way the server would — a row in
 `session`, and a cookie signed with the same secret — because real GitHub OAuth
 needs a third party's consent screen and a suite should not depend on one. What
@@ -316,10 +341,17 @@ none.
 
 ## What broke, and how it was found
 
-Five faults, each with the measurement that found it and the test that now
+Six faults, each with the measurement that found it and the test that now
 stands in its place. They are here rather than in the sections above because
 the design decisions should be readable without them — but they are the part of
 this repository I would most want to be asked about.
+
+Four of them changed a decision rather than only a line, and those carry a
+record of what was rejected on the way:
+[0003](docs/decisions/0003-failure-is-a-variant.md) ·
+[0004](docs/decisions/0004-no-suspense-above-the-answer.md) ·
+[0005](docs/decisions/0005-accounts-degrade.md) ·
+[0006](docs/decisions/0006-maplibre-v5.md).
 
 **The map drew nothing, and everything looked correct.** A MapLibre worker
 chunk did not survive bundling. The sources, the layers, the paint expressions
@@ -417,6 +449,21 @@ variant the model has to notice it may pick, and the prompt's examples include
 a question the dataset genuinely cannot answer. Ask about commute time and it
 says so, instead of quietly substituting straight-line distance.
 
+**And it is evaluated.** A closed output schema means there is a right answer,
+so `evals/` holds 30 question → expected-plan cases — eight of them refusals —
+scored by a grader that is itself unit-tested offline, on every push, against
+hand-written plans that are deliberately wrong. The interesting cases are the
+near-misses, because those are the ones nothing downstream can catch: the
+100-year floodplain for a question about the 500-year zone, `40` where the
+question said `$40,000`, parks for a question about food deserts. A plan that
+fails validation shows the visitor an error; a plan that validates and answers
+a different question gets drawn, captioned and shared.
+
+The live run needs an API key and is on a weekly schedule rather than on every
+push — [`evals/README.md`](evals/README.md) has the reasoning, and the part
+that does run on every push is the part that checks the grader still
+discriminates.
+
 ## Running it
 
 ```bash
@@ -465,6 +512,15 @@ tool at deploy time.
 To rebuild the dataset from scratch: `pipeline/extract.py` → `spatial.py` →
 `analyze.py` → `load_postgis.py`, then `county_outline.py`.
 
+`analyze.py` writes `build/block_groups.manifest.json` next to the table it
+produces — row count, byte size, columns, SHA-256 — and `load_postgis.py`
+verifies it before opening a transaction. The table is a build artefact kept in
+source control, which is a thing worth being deliberate about; the manifest is
+what makes regenerating it a reviewable diff rather than "binary file
+modified", and what catches a truncated file before it becomes a half-loaded
+database. [0009](docs/decisions/0009-derived-data-in-git.md) has the
+measurements and the condition for moving it out of git.
+
 ## Limits
 
 Distances are straight-line, not travel time — a block group 800m from a
@@ -493,7 +549,8 @@ Auth (GitHub OAuth, database sessions) · Neon Postgres with PostGIS ·
 Anthropic API
 
 **Testing and delivery** — Vitest (unit and integration against a Postgres
-service container) · Playwright across four environments · GitHub Actions
-gating deployment to Vercel
+service container) · Playwright across four environments · a model evaluation
+suite with an offline-tested grader · oxlint and Prettier · GitHub Actions
+gating deployment to Vercel, with grouped Dependabot updates
 
 **Data pipeline** — Python · GeoPandas · Shapely · PyProj
