@@ -24,8 +24,11 @@ import { notFound } from 'next/navigation';
 import { cache } from 'react';
 
 import Explorer from '@/components/Explorer';
+import Toast from '@/components/Toast';
 import { accountsEnabled } from '@/lib/auth';
-import { getBySlug, ownedBy } from '@/lib/saved';
+import { FLASH_PARAM, flashFor } from '@/lib/flash';
+import { requestOrigin } from '@/lib/origin';
+import { getBySlug, ownedBy, pathFor } from '@/lib/saved';
 import { viewer } from '@/lib/session';
 
 /**
@@ -50,21 +53,40 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
-export default async function SharedAnalysis({ params }: { params: Promise<{ slug: string }> }) {
+export default async function SharedAnalysis({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { slug } = await params;
-  const [row, me] = await Promise.all([load(slug), viewer()]);
+  const [row, me, query, origin] = await Promise.all([
+    load(slug),
+    viewer(),
+    searchParams,
+    requestOrigin(),
+  ]);
   if (!row) notFound();
 
+  const flash = flashFor(query[FLASH_PARAM]);
+
   return (
-    <Explorer
-      preset={row.presetId ?? undefined}
-      q={row.question ?? undefined}
-      me={me}
-      saved={{
-        slug: row.slug,
-        title: row.title,
-        mine: me ? await ownedBy(row.slug, me.id) : false,
-      }}
-    />
+    <>
+      <Explorer
+        preset={row.presetId ?? undefined}
+        q={row.question ?? undefined}
+        me={me}
+        origin={origin}
+        saved={{
+          slug: row.slug,
+          title: row.title,
+          mine: me ? await ownedBy(row.slug, me.id) : false,
+        }}
+      />
+      {/* Rendered here rather than inside Explorer: the confirmation is about
+          the navigation that just happened, not about the analysis. */}
+      {flash ? <Toast message={flash} dismissHref={pathFor(row.slug)} /> : null}
+    </>
   );
 }
