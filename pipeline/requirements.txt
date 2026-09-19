@@ -11,7 +11,7 @@
 geopandas~=1.1
 shapely~=2.1
 pandas~=3.0
-psycopg[binary]~=3.2
+psycopg[binary]~=3.3
 
 # The one exception, and the reason is not that 3.8 is broken.
 #
