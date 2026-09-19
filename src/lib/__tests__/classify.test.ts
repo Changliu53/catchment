@@ -34,7 +34,10 @@ describe('classify', () => {
   it('keeps a genuine zero', () => {
     // Plenty of block groups really do have no floodplain at all, and that is
     // a measurement, not an absence.
-    const { values, missing } = classify([row({ flood_pct: 0 }), row({ flood_pct: 0.4 })], 'flood_pct');
+    const { values, missing } = classify(
+      [row({ flood_pct: 0 }), row({ flood_pct: 0.4 })],
+      'flood_pct',
+    );
     expect(values).toEqual([0, 0.4]);
     expect(missing).toBe(0);
   });

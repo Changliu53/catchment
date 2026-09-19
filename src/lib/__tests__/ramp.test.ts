@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { classRanges, colorExpression, NO_DATA, quantileBreaks, RAMP, SPLIT_OUTLINE } from '../ramp';
+import {
+  classRanges,
+  colorExpression,
+  NO_DATA,
+  quantileBreaks,
+  RAMP,
+  SPLIT_OUTLINE,
+} from '../ramp';
 import { formatValue, labelFor } from '../format';
 
 describe('quantileBreaks', () => {
@@ -12,7 +19,12 @@ describe('quantileBreaks', () => {
 
   it('collapses duplicate edges instead of emitting identical classes', () => {
     // 90% of rows share one value — the shape of a real skewed field.
-    const values = [...Array(90).fill(0), ...Array(10).fill(0).map((_, i) => i + 1)];
+    const values = [
+      ...Array(90).fill(0),
+      ...Array(10)
+        .fill(0)
+        .map((_, i) => i + 1),
+    ];
     const b = quantileBreaks(values, 6);
     expect(new Set(b).size).toBe(b.length);
   });

@@ -135,9 +135,10 @@ interface Props {
  */
 function centroidOf(geometry: unknown): [number, number] | null {
   const g = geometry as { type?: string; coordinates?: unknown };
-  const polys = (g?.type === 'MultiPolygon'
-    ? (g.coordinates as number[][][][])
-    : [g?.coordinates as number[][][]]) ?? [];
+  const polys =
+    (g?.type === 'MultiPolygon'
+      ? (g.coordinates as number[][][][])
+      : [g?.coordinates as number[][][]]) ?? [];
 
   let x = 0;
   let y = 0;
@@ -160,8 +161,13 @@ export default function MapView({ features, colorBy, breaks, split, onHover, onS
   // The latest render inputs, readable from callbacks that outlive a render.
   // Without this, a style swap rebuilds the layers against whatever `features`
   // was closed over when the map was created — which is the empty first render.
+  //
+  // It is seeded from the first render and updated in the same effect that
+  // repaints — see the bottom of this component. It used to be assigned in the
+  // render body, which is a side effect inside a function React may call
+  // speculatively, abandon or replay: under concurrent rendering the ref could
+  // end up holding values from a render that was never committed.
   const latest = useRef({ features, colorBy, breaks, split });
-  latest.current = { features, colorBy, breaks, split };
 
   // Fills the existing layers from `latest`. Safe to call at any time: it does
   // nothing until the layers exist, and it is what makes a style swap
@@ -241,9 +247,11 @@ export default function MapView({ features, colorBy, breaks, split, onHover, onS
             g.type === 'MultiPolygon'
               ? (g.coordinates as number[][][][])
               : [g.coordinates as number[][][]];
-          for (const poly of polys) for (const ring of poly) for (const c of ring) {
-            b.extend([c[0]!, c[1]!]);
-          }
+          for (const poly of polys)
+            for (const ring of poly)
+              for (const c of ring) {
+                b.extend([c[0]!, c[1]!]);
+              }
         }
         // A camera flight is motion the reader did not ask for. Respect the
         // system setting and jump instead — the destination is identical.
@@ -313,7 +321,12 @@ export default function MapView({ features, colorBy, breaks, split, onHover, onS
           // White for the hovered edge: against six shades of blue, lighter
           // reads as "picked out" at every step, where darker vanishes into
           // the dark end of the ramp.
-          'line-color': ['case', ['boolean', ['feature-state', 'hover'], false], '#ffffff', '#1e293b'],
+          'line-color': [
+            'case',
+            ['boolean', ['feature-state', 'hover'], false],
+            '#ffffff',
+            '#1e293b',
+          ],
           'line-width': ['case', ['boolean', ['feature-state', 'hover'], false], 2.5, 0.9],
           'line-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 1, 0.7],
         },
@@ -440,8 +453,14 @@ export default function MapView({ features, colorBy, breaks, split, onHover, onS
     };
   }, [onHover, onSelect]);
 
-  // New results: refill and frame them.
+  // New results: record them, then refill and frame them.
+  //
+  // Both halves belong in one effect. The ref has to be current before `paint`
+  // reads it, and putting the write in a separate effect made that ordering a
+  // property of the order the effects happen to be declared in — true today,
+  // silently wrong after a reorder. Here the dependency is the write.
   useEffect(() => {
+    latest.current = { features, colorBy, breaks, split };
     paint.current(true);
   }, [features, colorBy, breaks, split]);
 

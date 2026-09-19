@@ -1,0 +1,10 @@
+# The data pipeline only. The application needs none of this — see package.json.
+#
+# Pinned to minor versions: GeoPandas and Shapely have both changed geometry
+# semantics across releases, and a pipeline whose output shifts because a
+# dependency drifted is worse than one that refuses to install.
+geopandas~=1.1
+shapely~=2.1
+pyproj~=3.7
+pandas~=2.2
+psycopg[binary]~=3.2

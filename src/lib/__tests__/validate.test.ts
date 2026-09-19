@@ -3,8 +3,7 @@ import { validatePlan } from '../validate';
 
 const base = { render: 'choropleth' as const, title: 'test' };
 
-const ok = (pipeline: unknown, extra: object = {}) =>
-  validatePlan({ ...base, ...extra, pipeline });
+const ok = (pipeline: unknown, extra: object = {}) => validatePlan({ ...base, ...extra, pipeline });
 
 describe('structural validation', () => {
   it('accepts a well-formed plan', () => {

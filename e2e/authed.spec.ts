@@ -22,12 +22,12 @@
 
 import { expect, test, type BrowserContext } from '@playwright/test';
 import { makeSignature } from 'better-auth/crypto';
-import pg from 'pg';
+import { Pool } from 'pg';
 
 import { E2E_AUTH_SECRET, E2E_DATABASE_URL, E2E_USER } from './authed-env';
 import { stubBasemap } from './helpers';
 
-const db = new pg.Pool({ connectionString: E2E_DATABASE_URL ?? undefined });
+const db = new Pool({ connectionString: E2E_DATABASE_URL ?? undefined });
 
 test.beforeAll(async () => {
   // Start from nothing: the cascade on `user` takes any saved rows with it,

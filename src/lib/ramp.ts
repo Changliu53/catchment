@@ -59,9 +59,7 @@ export function colorExpression(colorBy: string | null, breaks: number[]): unkno
   if (!colorBy) return RAMP[1];
 
   const shaded: unknown[] =
-    breaks.length === 0
-      ? [RAMP[1]]
-      : ['step', ['to-number', ['get', colorBy]], RAMP[0]];
+    breaks.length === 0 ? [RAMP[1]] : ['step', ['to-number', ['get', colorBy]], RAMP[0]];
   if (breaks.length > 0) {
     breaks.forEach((b, i) => shaded.push(b, RAMP[Math.min(i + 1, RAMP.length - 1)]!));
   }

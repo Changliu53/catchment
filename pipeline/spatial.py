@@ -27,6 +27,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import paths
+
 import geopandas as gpd
 import pandas as pd
 
@@ -144,9 +146,12 @@ def build(raw_dir: Path, blocks_path: Path, out: Path) -> gpd.GeoDataFrame:
 
 
 def main() -> int:
-    raw_dir = Path("/mnt/user-data/uploads/personal projects/catchment/raw")
-    blocks_path = Path("/home/claude/catchment/build/blockgroups.geojson")
-    out = Path("/home/claude/catchment/build/blockgroups_analyzed.geojson")
+    args = paths.parser(__doc__.strip().splitlines()[0]).parse_args()
+    raw_dir = paths.require(args.raw, "it holds the FEMA NFHL and the OSM extract")
+    blocks_path = paths.require(
+        args.build / paths.BLOCK_GROUPS.name, "run extract.py first"
+    )
+    out = args.build / paths.ANALYZED.name
 
     b = build(raw_dir, blocks_path, out)
 

@@ -46,5 +46,5 @@ export function labelFor(field: string): string {
     dist_park_m: 'Distance to nearest park',
     area_m2: 'Area',
   };
-  return labels[field] ?? (FIELDS[field as FieldName]?.name ?? field);
+  return labels[field] ?? FIELDS[field as FieldName]?.name ?? field;
 }

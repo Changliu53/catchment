@@ -21,37 +21,35 @@ export default function Image() {
   const { d } = countyPath(360, 360);
 
   return new ImageResponse(
-    (
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 56,
-          padding: 72,
-          background: '#f8fafc',
-          fontFamily: 'sans-serif',
-        }}
-      >
-        <svg width={360} height={360} viewBox="0 0 360 360">
-          <path d={d} fill="#1d4ed8" fillOpacity={0.12} stroke="#1e3a8a" strokeWidth={3} />
-        </svg>
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 56,
+        padding: 72,
+        background: '#f8fafc',
+        fontFamily: 'sans-serif',
+      }}
+    >
+      <svg width={360} height={360} viewBox="0 0 360 360">
+        <path d={d} fill="#1d4ed8" fillOpacity={0.12} stroke="#1e3a8a" strokeWidth={3} />
+      </svg>
 
-        <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-          <div style={{ fontSize: 72, fontWeight: 700, color: '#0f172a', letterSpacing: -2 }}>
-            Catchment
-          </div>
-          <div style={{ fontSize: 34, color: '#334155', marginTop: 20, lineHeight: 1.3 }}>
-            Flood exposure and service access across Harris County, Texas
-          </div>
-          <div style={{ fontSize: 26, color: '#64748b', marginTop: 28, lineHeight: 1.4 }}>
-            Ask in plain English. A language model writes the analysis plan; a fixed program runs
-            it over 2,830 census block groups.
-          </div>
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+        <div style={{ fontSize: 72, fontWeight: 700, color: '#0f172a', letterSpacing: -2 }}>
+          Catchment
+        </div>
+        <div style={{ fontSize: 34, color: '#334155', marginTop: 20, lineHeight: 1.3 }}>
+          Flood exposure and service access across Harris County, Texas
+        </div>
+        <div style={{ fontSize: 26, color: '#64748b', marginTop: 28, lineHeight: 1.4 }}>
+          Ask in plain English. A language model writes the analysis plan; a fixed program runs it
+          over 2,830 census block groups.
         </div>
       </div>
-    ),
+    </div>,
     size,
   );
 }

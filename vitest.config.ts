@@ -16,7 +16,9 @@ export default defineConfig({
       // export condition, which Vitest does not. Aliasing it to nothing lets
       // server modules be unit-tested; the guard it provides is a build-time
       // one in Next, and is unaffected.
-      'server-only': fileURLToPath(new URL('./src/lib/__tests__/server-only.stub.ts', import.meta.url)),
+      'server-only': fileURLToPath(
+        new URL('./src/lib/__tests__/server-only.stub.ts', import.meta.url),
+      ),
     },
   },
   test: {

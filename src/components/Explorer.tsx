@@ -213,14 +213,13 @@ function Failed({ failure }: { failure: Extract<Result, { ok: false }> }) {
   const { title, detail, hint } = describe(failure);
 
   return (
-    <section
-      role="status"
-      className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"
-    >
+    // <output> rather than a div with role="status": it carries that role
+    // implicitly, so the announcement and the element agree by construction.
+    <output className="block rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
       <p className="font-medium">{title}</p>
       <p className="mt-1 leading-relaxed">{detail}</p>
       {hint && <p className="mt-2 leading-relaxed text-amber-800">{hint}</p>}
-    </section>
+    </output>
   );
 }
 

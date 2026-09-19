@@ -67,7 +67,7 @@ export const FIXTURE_ROWS: BlockGroup[] = [
     income_topcoded: false,
     area_m2: 800_000,
     flood_pct: 0.75,
-    flood_pct_500: 0.80,
+    flood_pct_500: 0.8,
     dist_grocery_m: 1500,
     dist_park_m: 900,
     pop_density: 1000,

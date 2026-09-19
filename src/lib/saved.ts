@@ -137,13 +137,15 @@ export async function createFor(
   }
 
   const slug = newSlug();
-  await db().insert(savedAnalysis).values({
-    slug,
-    userId,
-    title: input.title.trim().slice(0, 120) || 'Untitled analysis',
-    presetId,
-    question,
-  });
+  await db()
+    .insert(savedAnalysis)
+    .values({
+      slug,
+      userId,
+      title: input.title.trim().slice(0, 120) || 'Untitled analysis',
+      presetId,
+      question,
+    });
 
   return slug;
 }

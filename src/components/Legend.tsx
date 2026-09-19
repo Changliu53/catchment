@@ -99,7 +99,9 @@ export default function Legend({ field, values, breaks, missing, split }: Props)
               className="h-3 w-3 shrink-0 rounded-sm border-2"
               style={{ borderColor: SPLIT_OUTLINE }}
             />
-            <span>{'\u2265'} {formatValue(split.field, split.threshold)} floodplain</span>
+            <span>
+              {'\u2265'} {formatValue(split.field, split.threshold)} floodplain
+            </span>
             <span className="tabular-nums text-slate-400">{split.above}</span>
           </div>
         )}
@@ -151,7 +153,8 @@ export default function Legend({ field, values, breaks, missing, split }: Props)
               style={{ borderColor: SPLIT_OUTLINE }}
             />
             <span className="leading-tight">
-              {'\u2265'} {formatValue(split.field, split.threshold)} {labelFor(split.field).toLowerCase()}
+              {'\u2265'} {formatValue(split.field, split.threshold)}{' '}
+              {labelFor(split.field).toLowerCase()}
             </span>
             <span className="ml-auto pl-2 tabular-nums text-slate-400">{split.above}</span>
           </li>

@@ -69,8 +69,7 @@ export const PRESETS: Preset[] = [
   {
     id: 'most-exposed-population',
     question: 'Which neighbourhoods have the most people living in the floodplain?',
-    reading:
-      'Block groups at least 80% inside the 100-year floodplain, ranked by population.',
+    reading: 'Block groups at least 80% inside the 100-year floodplain, ranked by population.',
     plan: {
       title: 'Population in the floodplain',
       pipeline: [
@@ -84,8 +83,7 @@ export const PRESETS: Preset[] = [
   {
     id: 'grocery-deserts',
     question: 'Where are the worst grocery deserts, regardless of flooding?',
-    reading:
-      'Block groups more than 3 km from the nearest supermarket, ranked by population.',
+    reading: 'Block groups more than 3 km from the nearest supermarket, ranked by population.',
     plan: {
       title: 'Distance to the nearest supermarket',
       pipeline: [

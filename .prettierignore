@@ -1,0 +1,10 @@
+.next/
+build/
+drizzle/
+docs/
+fixtures/
+playwright-report/
+test-results/
+package-lock.json
+src/lib/harris-county.json
+next-env.d.ts

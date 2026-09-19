@@ -1,0 +1,52 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "nextjs", "typescript", "jsx-a11y", "promise", "import"],
+  "env": {
+    "browser": true,
+    "node": true,
+    "es2024": true
+  },
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn"
+  },
+  "rules": {
+    "no-console": "off",
+    "no-underscore-dangle": "off",
+    "no-shadow": "off",
+    "typescript/no-explicit-any": "error",
+    "jsx-a11y/alt-text": "error",
+    "jsx-a11y/anchor-is-valid": "error",
+    "jsx-a11y/label-has-associated-control": "error",
+    "jsx-a11y/aria-props": "error",
+    "jsx-a11y/role-has-required-aria-props": "error",
+    "eslint/no-unused-vars": [
+      "error",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_"
+      }
+    ],
+    "react/react-in-jsx-scope": "off",
+    "react/no-array-index-key": "off",
+    "import/no-unassigned-import": "off"
+  },
+  "ignorePatterns": [
+    ".next/**",
+    "build/**",
+    "drizzle/**",
+    "node_modules/**",
+    "playwright-report/**",
+    "test-results/**",
+    "next-env.d.ts"
+  ],
+  "overrides": [
+    {
+      "files": ["e2e/**", "**/__tests__/**", "*.config.ts", "scripts/**"],
+      "rules": {
+        "typescript/no-explicit-any": "off",
+        "typescript/consistent-type-imports": "off"
+      }
+    }
+  ]
+}
