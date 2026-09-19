@@ -93,8 +93,10 @@ async function run(plan: Plan, source: Answer['source'], reading?: string): Prom
     };
   }
 
+  // No cast: `execute` is generic in the row type, so what comes out still
+  // carries the geometry that went in.
   const result = execute(plan, rows);
-  const matched = result.rows as BlockGroupFeature[];
+  const matched = result.rows;
 
   return {
     ok: true,
@@ -121,7 +123,6 @@ async function run(plan: Plan, source: Answer['source'], reading?: string): Prom
         flood_pct_500: r.flood_pct_500,
         dist_grocery_m: r.dist_grocery_m,
         dist_park_m: r.dist_park_m,
-        ...(r.derived ?? {}),
       },
     })),
     ...(reading ? { reading } : {}),

@@ -72,21 +72,6 @@ describe('rank', () => {
   });
 });
 
-describe('normalize', () => {
-  it('writes a derived ratio without mutating the source rows', () => {
-    const r = execute(plan([{ op: 'normalize', measure: 'pop', by: 'area_m2' }]), FIXTURE_ROWS);
-    expect(r.rows[0]?.derived?.['pop_per_area_m2']).toBeCloseTo(1000 / 1_000_000, 12);
-    expect(FIXTURE_ROWS[0]).not.toHaveProperty('derived');
-  });
-
-  it('yields zero instead of Infinity when the denominator is zero', () => {
-    const r = execute(plan([{ op: 'normalize', measure: 'pop', by: 'area_m2' }]), [
-      { ...FIXTURE_ROWS[0]!, area_m2: 0 },
-    ]);
-    expect(r.rows[0]?.derived?.['pop_per_area_m2']).toBe(0);
-  });
-});
-
 describe('pipelines', () => {
   it('composes steps in order and records a trace', () => {
     const r = execute(

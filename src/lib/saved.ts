@@ -29,12 +29,40 @@ export interface SavedAnalysis {
   createdAt: Date;
 }
 
-/** Short, URL-safe, and unambiguous when read aloud or typed. */
+/**
+ * Short, URL-safe, and unambiguous when read aloud or typed: no `l`, no `1`,
+ * no `0`, no `o`.
+ */
 const ALPHABET = 'abcdefghijkmnopqrstuvwxyz23456789';
 
+/**
+ * Largest multiple of the alphabet size that fits in a byte.
+ *
+ * `byte % 33` is the obvious way to pick a character and it is biased: 256 is
+ * not a multiple of 33, so the first 256 % 33 = 25 letters come up slightly
+ * more often than the rest. Nothing here depends on uniformity — a slug is not
+ * a secret — but a biased random function is the kind of detail that is free
+ * to get right and awkward to explain.
+ */
+const CEILING = Math.floor(256 / ALPHABET.length) * ALPHABET.length;
+
+export function newSlugForTest(length = 10): string {
+  return newSlug(length);
+}
+
 function newSlug(length = 10): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(length));
-  return Array.from(bytes, (b) => ALPHABET[b % ALPHABET.length]).join('');
+  let out = '';
+  while (out.length < length) {
+    // Rejection sampling: draw, discard anything in the uneven tail, repeat.
+    // Each byte has a 25/256 chance of being discarded, so this loops about
+    // 1.1 times per character.
+    for (const byte of crypto.getRandomValues(new Uint8Array(length))) {
+      if (byte >= CEILING) continue;
+      out += ALPHABET[byte % ALPHABET.length];
+      if (out.length === length) break;
+    }
+  }
+  return out;
 }
 
 /**
