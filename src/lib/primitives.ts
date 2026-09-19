@@ -21,8 +21,6 @@ export interface BlockGroup {
   dist_grocery_m: number;
   dist_park_m: number;
   pop_density: number;
-  /** Written by `normalize`. Keyed as `${measure}_per_${by}`. */
-  derived?: Record<string, number>;
 }
 
 export interface DistributionStats {
@@ -41,8 +39,8 @@ export interface ComparisonResult {
   below: DistributionStats;
 }
 
-export interface ExecutionResult {
-  rows: BlockGroup[];
+export interface ExecutionResult<T extends BlockGroup = BlockGroup> {
+  rows: T[];
   comparison?: ComparisonResult;
   /** Rows surviving after each step, for the "show your work" panel. */
   trace: { op: string; remaining: number }[];
@@ -87,10 +85,10 @@ const COMPARATORS: Record<string, (a: number, b: number) => boolean> = {
   eq: (a, b) => a === b,
 };
 
-function applyStep(
-  rows: BlockGroup[],
+function applyStep<T extends BlockGroup>(
+  rows: T[],
   step: Step,
-): { rows: BlockGroup[]; comparison?: ComparisonResult } {
+): { rows: T[]; comparison?: ComparisonResult } {
   switch (step.op) {
     case 'filter': {
       const cmp = COMPARATORS[step.comparison];
@@ -111,18 +109,6 @@ function applyStep(
     case 'resource_gap': {
       const field = step.poi_type === 'supermarket' ? 'dist_grocery_m' : 'dist_park_m';
       return { rows: rows.filter((r) => r[field] > step.max_distance_m) };
-    }
-
-    case 'normalize': {
-      const key = `${step.measure}_per_${step.by}`;
-      return {
-        rows: rows.map((r) => {
-          const num = valueOf(r, step.measure);
-          const den = valueOf(r, step.by);
-          const ratio = num === null || den === null || den === 0 ? 0 : num / den;
-          return { ...r, derived: { ...r.derived, [key]: ratio } };
-        }),
-      };
     }
 
     case 'rank': {
@@ -161,8 +147,21 @@ function applyStep(
   }
 }
 
-export function execute(plan: Plan, source: readonly BlockGroup[]): ExecutionResult {
-  let rows: BlockGroup[] = [...source];
+/**
+ * Run a plan over rows, returning the rows that survived.
+ *
+ * Generic in the row type, which is not decoration. Every step here filters,
+ * sorts or truncates — none of them construct a row — so whatever came in
+ * comes out, including fields this module has never heard of. Typing it as
+ * `BlockGroup[]` threw that away and made the one caller that needs geometry
+ * cast the result back, which is the kind of cast that stops being true the
+ * day the executor starts building rows of its own.
+ */
+export function execute<T extends BlockGroup>(
+  plan: Plan,
+  source: readonly T[],
+): ExecutionResult<T> {
+  let rows: T[] = [...source];
   let comparison: ComparisonResult | undefined;
   const trace: { op: string; remaining: number }[] = [];
 

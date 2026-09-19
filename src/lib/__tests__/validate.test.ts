@@ -44,30 +44,6 @@ describe('semantic validation', () => {
     }
   });
 
-  it('rejects normalize placed after rank', () => {
-    const r = ok([
-      { op: 'rank', measure: 'pop', dir: 'desc', n: 10 },
-      { op: 'normalize', measure: 'pop', by: 'area_m2' },
-    ]);
-    expect(r.ok).toBe(false);
-    if (!r.ok && 'errors' in r) {
-      expect(r.errors.join(' ')).toContain('normalize must come before rank');
-    }
-  });
-
-  it('accepts normalize placed before rank', () => {
-    const r = ok([
-      { op: 'normalize', measure: 'pop', by: 'area_m2' },
-      { op: 'rank', measure: 'pop', dir: 'desc', n: 10 },
-    ]);
-    expect(r.ok).toBe(true);
-  });
-
-  it('rejects normalizing an already-derived rate', () => {
-    const r = ok([{ op: 'normalize', measure: 'pop_density', by: 'area_m2' }]);
-    expect(r.ok).toBe(false);
-  });
-
   it('rejects compare in a non-terminal position', () => {
     const r = ok(
       [

@@ -16,7 +16,6 @@ import Anthropic from '@anthropic-ai/sdk';
 import {
   COMPARISON_OPS,
   PRIMITIVE_OPS,
-  DENOMINATORS,
   FIELD_NAMES,
   MAX_PIPELINE_STEPS,
   POI_TYPES,
@@ -77,8 +76,7 @@ const STEP_SCHEMA = {
       type: 'number',
       description: 'resource_gap: keep block groups farther than this, in metres.',
     },
-    measure: { ...fieldEnum, description: 'normalize, rank, compare: the field being measured.' },
-    by: { type: 'string', enum: [...DENOMINATORS], description: 'normalize: the denominator.' },
+    measure: { ...fieldEnum, description: 'rank, compare: the field being measured.' },
     dir: { type: 'string', enum: ['asc', 'desc'], description: 'rank: sort direction.' },
     n: { type: 'integer', minimum: 1, maximum: 200, description: 'rank: how many to keep.' },
     split_on: { ...fieldEnum, description: 'compare: the field the two groups are split on.' },
@@ -144,7 +142,6 @@ ${describePrimitives()}
 
 RULES
 - Steps run in order. At most ${MAX_PIPELINE_STEPS}.
-- normalize must come before rank; it reorders rows and rank truncates them.
 - compare emits statistics rather than rows, so it must be the last step and
   requires render "comparison".
 - flood_pct is the 1% annual chance floodplain. flood_pct_500 is the 0.2% zone

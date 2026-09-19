@@ -49,11 +49,27 @@ export default async function Explorer({ preset, q, me, saved }: ExplorerProps) 
     // Only read headers when there is something to rate limit. Reading them
     // unconditionally would opt the empty landing page into dynamic rendering
     // for no reason.
-    const forwarded = q?.trim() ? (await headers()).get('x-forwarded-for') : null;
+    const needsKey = Boolean(q?.trim()) && !saved;
+    const forwarded = needsKey ? (await headers()).get('x-forwarded-for') : null;
+
     result = await answerFor({
       presetId: preset,
       question: q,
-      clientKey: forwarded?.split(',')[0]?.trim() || 'unknown',
+      // A saved analysis is limited as itself, not as whoever opened it.
+      //
+      // Without this, opening someone's share link spent the *reader's* hourly
+      // allowance — so a link shared with ten colleagues could greet the
+      // eleventh with "slow down a moment" for something they never did. The
+      // link gets its own bucket instead: the first open may reach the model,
+      // every open after that is served from the plan cache, and no reader is
+      // ever charged for arriving.
+      //
+      // What this does not do is bound the cost across many different links.
+      // That would mean storing the validated plan alongside the question, so
+      // a share link never reaches a model at all — a schema change worth
+      // making if this were more than a demo, and the reason it is not made
+      // here is that the cache plus a spend limit already bound the bill.
+      clientKey: saved ? `saved:${saved.slug}` : forwarded?.split(',')[0]?.trim() || 'unknown',
     });
   }
 

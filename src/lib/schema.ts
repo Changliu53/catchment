@@ -14,8 +14,6 @@ export interface FieldSpec {
   readonly description: string;
   /** Plausible range. Used by the semantic validator to reject absurd thresholds. */
   readonly range: readonly [number, number];
-  /** Fields derived from others cannot be used as a normalization denominator. */
-  readonly isDerived?: boolean;
 }
 
 const FIELDS_RAW = {
@@ -69,9 +67,8 @@ const FIELDS_RAW = {
   pop_density: {
     name: 'pop_density',
     unit: 'people/km^2',
-    description: 'Population per square kilometre',
+    description: 'Population per square kilometre, precomputed by the pipeline',
     range: [0, 100_000],
-    isDerived: true,
   },
 } as const satisfies Record<string, FieldSpec>;
 
@@ -80,14 +77,10 @@ export type FieldName = keyof typeof FIELDS_RAW;
 /**
  * Widened view of the field table. `as const satisfies` above pins the key
  * names for the type system; this alias restores the uniform FieldSpec value
- * type, so optional members like `isDerived` are readable on every entry.
+ * type, so every entry is readable through one shape.
  */
 export const FIELDS: Record<FieldName, FieldSpec> = FIELDS_RAW;
 export const FIELD_NAMES = Object.keys(FIELDS) as FieldName[];
-
-/** Fields that may serve as a denominator in `normalize`. */
-export const DENOMINATORS = ['pop', 'area_m2'] as const;
-export type Denominator = (typeof DENOMINATORS)[number];
 
 export const POI_TYPES = ['supermarket', 'park'] as const;
 export type PoiType = (typeof POI_TYPES)[number];
@@ -118,11 +111,6 @@ export const PRIMITIVES = {
     op: 'resource_gap',
     summary: 'Keep block groups farther than max_distance_m from the nearest POI of a type.',
     params: 'poi_type (supermarket|park), max_distance_m (metres)',
-  },
-  normalize: {
-    op: 'normalize',
-    summary: 'Divide a measure by pop or area_m2, writing the result to a derived field.',
-    params: 'measure (field), by (pop|area_m2)',
   },
   rank: {
     op: 'rank',

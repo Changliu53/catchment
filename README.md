@@ -39,7 +39,7 @@ If you read nothing else:
   zero on a 390px screen. That is now asserted at five widths with touch
   emulation.
 - **The language model writes a plan; it never touches the data.** Eight field
-  names, six operations, a bounded step count. Correctness lives in a pure
+  names, five operations, a bounded step count. Correctness lives in a pure
   function that is tested without a model.
 
 Things that went wrong, and how each was found, are collected in
@@ -387,7 +387,7 @@ analysis plan and does nothing else: it never sees the data, never computes a
 number, and never emits code.
 
 That makes its output safe by construction rather than by sanitising. The tool
-schema is a whitelist — eight field names, six operations, a bounded step
+schema is a whitelist — eight field names, five operations, a bounded step
 count — so there is no string that becomes SQL and no string that becomes
 code. A plan naming a field that does not exist fails the Zod union before the
 executor runs. Correctness lives in the executor, which is a pure function

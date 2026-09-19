@@ -9,7 +9,6 @@
 import { z } from 'zod';
 import {
   COMPARISON_OPS,
-  DENOMINATORS,
   FIELDS,
   FIELD_NAMES,
   MAX_PIPELINE_STEPS,
@@ -37,12 +36,6 @@ const resourceGapStep = z.object({
   max_distance_m: z.number().positive().max(50_000),
 });
 
-const normalizeStep = z.object({
-  op: z.literal('normalize'),
-  measure: fieldName,
-  by: z.enum(DENOMINATORS),
-});
-
 const rankStep = z.object({
   op: z.literal('rank'),
   measure: fieldName,
@@ -61,7 +54,6 @@ export const stepSchema = z.discriminatedUnion('op', [
   filterStep,
   floodExposureStep,
   resourceGapStep,
-  normalizeStep,
   rankStep,
   compareStep,
 ]);
@@ -119,20 +111,7 @@ export function checkSemantics(plan: Plan): string[] {
         );
       }
     }
-
-    // Normalizing an already-derived rate produces a meaningless quantity.
-    if (step.op === 'normalize' && FIELDS[step.measure].isDerived) {
-      errors.push(`step ${i} (normalize): ${step.measure} is already a derived rate`);
-    }
   });
-
-  // Ordering: normalizing after ranking silently discards the rows that
-  // normalization was supposed to reorder.
-  const rankAt = plan.pipeline.findIndex((s) => s.op === 'rank');
-  const normalizeAt = plan.pipeline.findIndex((s) => s.op === 'normalize');
-  if (rankAt !== -1 && normalizeAt !== -1 && normalizeAt > rankAt) {
-    errors.push('normalize must come before rank, otherwise it reorders an already-truncated set');
-  }
 
   // compare terminates the pipeline: it emits statistics, not block groups.
   const compareAt = plan.pipeline.findIndex((s) => s.op === 'compare');
