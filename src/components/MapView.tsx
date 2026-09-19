@@ -33,7 +33,40 @@ import maplibregl from 'maplibre-gl';
 import type { Map as MapLibreMap, MapLayerMouseEvent } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
-import { FILL_OPACITY, RAMP } from '@/lib/ramp';
+import { colorExpression, FILL_OPACITY, RAMP } from '@/lib/ramp';
+import COUNTY from '@/lib/harris-county.json';
+
+/**
+ * Everything outside Harris County, as one polygon with the county punched out
+ * of it. Drawn in translucent white, it turns the basemap's surroundings into
+ * context and makes the study area unmistakable.
+ *
+ * This matters more than it sounds. The analysis covers exactly one county,
+ * but the basemap runs to Galveston and beyond, so an empty stretch of map was
+ * ambiguous: no block group matched here, or this was never in the dataset?
+ * The mask answers that without a word of explanation.
+ *
+ * The outer ring stops short of the poles because Web Mercator does not reach
+ * them; ±85° is the projection's own limit.
+ */
+const WORLD_RING: [number, number][] = [
+  [-180, -85],
+  [180, -85],
+  [180, 85],
+  [-180, 85],
+  [-180, -85],
+];
+
+const countyRings = (COUNTY.geometry as { type: string; coordinates: number[][][] }).coordinates;
+
+const OUTSIDE_COUNTY = {
+  type: 'Feature' as const,
+  properties: {},
+  geometry: {
+    type: 'Polygon' as const,
+    coordinates: [WORLD_RING, ...countyRings],
+  },
+};
 
 /**
  * Basemap, with a fallback.
@@ -75,6 +108,13 @@ interface Props {
   /** Class breaks, computed by the page so the legend and the map agree. */
   breaks: number[];
   onHover: (props: Record<string, number | string | boolean | null> | null) => void;
+  /**
+   * A block group the reader picked, rather than passed over. Touch devices
+   * have no hover, so without this every per-block-group number — population,
+   * income, flood share, distances — is unreachable on a phone and the map is
+   * decoration.
+   */
+  onSelect: (props: Record<string, number | string | boolean | null> | null) => void;
 }
 
 /**
@@ -101,14 +141,7 @@ function centroidOf(geometry: unknown): [number, number] | null {
   return n === 0 ? null : [x / n, y / n];
 }
 
-function colorExpression(colorBy: string | null, breaks: number[]): unknown {
-  if (!colorBy || breaks.length === 0) return RAMP[1]!;
-  const expr: unknown[] = ['step', ['to-number', ['get', colorBy], 0], RAMP[0]!];
-  breaks.forEach((b, i) => expr.push(b, RAMP[Math.min(i + 1, RAMP.length - 1)]!));
-  return expr;
-}
-
-export default function MapView({ features, colorBy, breaks, onHover }: Props) {
+export default function MapView({ features, colorBy, breaks, onHover, onSelect }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
   const hovered = useRef<string | null>(null);
@@ -184,7 +217,12 @@ export default function MapView({ features, colorBy, breaks, onHover }: Props) {
             b.extend([c[0]!, c[1]!]);
           }
         }
-        if (!b.isEmpty()) m.fitBounds(b, { padding: 56, maxZoom: 12, duration: 600 });
+        // A camera flight is motion the reader did not ask for. Respect the
+        // system setting and jump instead — the destination is identical.
+        const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+        if (!b.isEmpty()) {
+          m.fitBounds(b, { padding: 56, maxZoom: 12, duration: still ? 0 : 600 });
+        }
       }
     };
 
@@ -201,6 +239,25 @@ export default function MapView({ features, colorBy, breaks, onHover }: Props) {
 
     const build = () => {
       if (m.getSource('results')) return;
+
+      // The county frame goes down first so every results layer sits on top of
+      // it. Its data never changes, so unlike the results sources it is filled
+      // here and never touched again.
+      m.addSource('county', { type: 'geojson', data: OUTSIDE_COUNTY });
+      m.addSource('county-line', { type: 'geojson', data: COUNTY as never });
+
+      m.addLayer({
+        id: 'county-mask',
+        type: 'fill',
+        source: 'county',
+        paint: { 'fill-color': '#f8fafc', 'fill-opacity': 0.6 },
+      });
+      m.addLayer({
+        id: 'county-outline',
+        type: 'line',
+        source: 'county-line',
+        paint: { 'line-color': '#64748b', 'line-width': 1.25, 'line-opacity': 0.9 },
+      });
 
       // promoteId lifts geoid into the feature id, which feature-state keys on.
       m.addSource('results', {
@@ -265,7 +322,29 @@ export default function MapView({ features, colorBy, breaks, onHover }: Props) {
           setHovered(null);
           onHover(null);
         });
+
+        // Tap or click to pick one. On a pointer device this pins what hover
+        // was already showing; on a touch device it is the only way to see it
+        // at all.
+        m.on('click', layer, (e: MapLayerMouseEvent) => {
+          const f = e.features?.[0];
+          if (!f) return;
+          setHovered((f.id ?? f.properties?.['geoid'] ?? null) as string | null);
+          onSelect(f.properties ?? null);
+        });
       }
+
+      // A tap on the map that hits no block group clears the selection — the
+      // ordinary way out of a detail panel, and on a phone the panel covers
+      // enough of the map to need one.
+      m.on('click', (e) => {
+        const layers = ['results-fill', 'results-dots'].filter((l) => m.getLayer(l));
+        if (layers.length === 0) return;
+        if (m.queryRenderedFeatures(e.point, { layers }).length === 0) {
+          setHovered(null);
+          onSelect(null);
+        }
+      });
 
       // The whole point: rebuilt layers are useless empty. Refill immediately,
       // without re-framing — a style swap should not yank the user's view.
@@ -317,7 +396,7 @@ export default function MapView({ features, colorBy, breaks, onHover }: Props) {
       paint.current = () => {};
       delete (window as unknown as { __catchmentMap?: MapLibreMap }).__catchmentMap;
     };
-  }, [onHover]);
+  }, [onHover, onSelect]);
 
   // New results: refill and frame them.
   useEffect(() => {

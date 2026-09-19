@@ -2,9 +2,9 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  // The analysis dataset is static once built; nothing here is user-specific,
-  // so responses can be cached aggressively at the edge.
-  experimental: { typedRoutes: true },
+  // Top-level as of Next 16; it warned on every build while it sat under
+  // `experimental`, which is noise in a CI log people are supposed to read.
+  typedRoutes: true,
 };
 
 export default nextConfig;
