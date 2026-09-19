@@ -31,6 +31,27 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    # Accounts and saved analyses are the one part of this app that cannot be
+    # tested against a fixture: the claim is that a WHERE clause keeps one
+    # person out of another's rows, and only a real database can refuse a
+    # query. Plain Postgres, not PostGIS — the geometry never comes near this
+    # one; it holds sessions and saved questions.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+
     steps:
       - uses: actions/checkout@v5
 
@@ -44,7 +65,17 @@ jobs:
       - name: Types
         run: npm run typecheck
 
-      - name: Unit
+      # The committed SQL, applied in order to an empty database. A migration
+      # that only works where the table already exists fails here rather than
+      # in production.
+      - name: Migrate
+        run: npm run db:migrate
+
+      # The authorization tests skip themselves without DATABASE_URL, which is
+      # exactly how a suite quietly stops testing anything. They refuse to skip
+      # when CI is set, so a missing service container fails the run here
+      # rather than passing it — see `saved.integration.test.ts`.
+      - name: Unit and integration
         run: npm test
 
       # Only Chromium, and only its dependencies. The suite asserts about
@@ -54,10 +85,14 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
-      # The config builds the app and serves it: the regression this guards was
-      # a bundling fault, so a dev server would not reproduce it.
+      # Deliberately without DATABASE_URL: this is the "clone it and run it"
+      # path, where the analysis works from the sampled dataset and accounts
+      # are simply absent. If that path breaks, the repository stops being
+      # runnable by anyone who does not already have a database.
       - name: End-to-end
         run: npm run test:e2e
+        env:
+          DATABASE_URL: ''
 
       - name: Upload Playwright report
         if: failure()
@@ -107,7 +142,7 @@ jobs:
         with:
           script: |
             const marker = '<!-- preview-url -->';
-            const body = `${marker}\nPreview for \`${context.payload.pull_request.head.sha.slice(0, 7)}\`: ${{ steps.deploy.outputs.url }}`;
+            const body = `${marker}\nPreview for \`${context.sha.slice(0, 7)}\`: ${{ steps.deploy.outputs.url }}`;
             const { owner, repo } = context.repo;
             const issue_number = context.issue.number;
             const comments = await github.paginate(github.rest.issues.listComments, {
