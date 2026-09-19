@@ -4,6 +4,7 @@
 .env.local
 .next/
 .venv/
+.vercel/
 __pycache__/
 _to_delete/
 build/blockgroups.geojson

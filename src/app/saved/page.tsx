@@ -8,7 +8,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
-import { listForUser, paramsFor, pathFor } from '@/lib/saved';
+import { listForUser, pathFor, questionFor } from '@/lib/saved';
 import { viewer } from '@/lib/session';
 
 export const metadata = { title: 'Saved analyses — Catchment' };
@@ -58,15 +58,26 @@ export default async function Saved() {
               className="flex items-baseline justify-between gap-4 rounded-md border border-slate-200 p-3"
             >
               <div className="min-w-0">
-                <Link
-                  href={pathFor(row.slug)}
-                  className="text-sm font-medium text-slate-900 underline-offset-2 hover:underline"
-                >
-                  {row.title}
-                </Link>
-                <p className="mt-0.5 truncate font-mono text-[11px] text-slate-500">
-                  {paramsFor(row)}
-                </p>
+                <div className="flex items-baseline gap-2">
+                  <Link
+                    href={pathFor(row.slug)}
+                    className="truncate text-sm font-medium text-slate-900 underline-offset-2 hover:underline"
+                  >
+                    {row.title}
+                  </Link>
+                  {/* Same chip the answer panel uses, so "this one came from a
+                      preset" means the same thing in both places. */}
+                  {row.presetId ? (
+                    <span className="shrink-0 rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-600">
+                      Preset
+                    </span>
+                  ) : null}
+                </div>
+                {/* The question as it was asked. This line used to show the URL
+                    parameters, which meant a question someone typed came back
+                    at them percent-encoded — correct for an address bar,
+                    unreadable in a list of your own work. */}
+                <p className="mt-0.5 truncate text-xs text-slate-600">{questionFor(row)}</p>
               </div>
               <time
                 dateTime={row.createdAt.toISOString()}

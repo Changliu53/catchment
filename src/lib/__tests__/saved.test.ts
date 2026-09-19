@@ -14,7 +14,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { paramsFor, pathFor } from '@/lib/saved';
+import { paramsFor, pathFor, questionFor } from '@/lib/saved';
 
 describe('turning a saved row back into a question', () => {
   it('prefers the preset when there is one', () => {
@@ -31,5 +31,26 @@ describe('turning a saved row back into a question', () => {
 
   it('builds a path the router can check', () => {
     expect(pathFor('abc123')).toBe('/a/abc123');
+  });
+});
+
+describe('the question behind a saved row', () => {
+  it('gives back free text exactly as it was asked', () => {
+    // The regression: this line rendered `paramsFor`, so a typed question came
+    // back as q=which%20neighborhood%20having%20the%20least%20flood%20rate…
+    const question = 'which neighborhood having the least flood rate & lowest income?';
+    expect(questionFor({ presetId: null, question })).toBe(question);
+  });
+
+  it('resolves a preset to its wording, not its id', () => {
+    expect(questionFor({ presetId: 'income-flood-gap', question: null })).toBe(
+      'Do lower-income areas sit in the floodplain more often?',
+    );
+  });
+
+  it('falls back to the id for a preset that no longer exists', () => {
+    // Presets ship with the build, so a saved row can outlive one. Showing the
+    // id is poor; showing nothing at all would be worse.
+    expect(questionFor({ presetId: 'retired-preset', question: null })).toBe('retired-preset');
   });
 });
