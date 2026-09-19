@@ -290,6 +290,8 @@ are wrong by a factor that varies with latitude.
 npm test            # unit, plus integration if DATABASE_URL is set
 npm run test:e2e    # end-to-end, against a production build
 npm run eval        # the model evaluation — needs ANTHROPIC_API_KEY
+
+python pipeline/smoke.py   # the pipeline's dependencies still do what it needs
 ```
 
 Both run in CI on every push, and a deploy only happens after they pass. The
@@ -316,6 +318,16 @@ table already exists fails there rather than in production.
   | degraded | a connection string and nothing else               | every public route still answers, and none answers 500                             |
   | outage   | accounts configured, database refusing connections | pressing sign-in reports the failure instead of hanging                            |
   | authed   | accounts working, real Postgres                    | save → share → rename → delete, and what a stranger is offered                     |
+
+- **The pipeline** — `pipeline/smoke.py`, run in CI on every push against the
+  Python floor `requirements.txt` states. Not a test of the analysis — the real
+  number is checked where it can be, by `county_outline.py` refusing to ship an
+  outline if the county's area drifts more than 1% — but of the thing a
+  dependency bump breaks: that reprojection into UTM 15N, the flood overlay,
+  nearest-facility distance, null preservation and WKB output all still work.
+  It exists because a dependency update to `requirements.txt` used to collect
+  three green checks that were all about the JavaScript, and one of those bumps
+  made the pipeline uninstallable.
 
 - **A negative control** — one spec removes the Web Worker and asserts the map
   renders _nothing_. A regression test that has never failed is a guess about
