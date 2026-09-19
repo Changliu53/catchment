@@ -132,14 +132,28 @@ which would disagree with the server-rendered HTML.
 Sign in with GitHub, keep a question, get a link anyone can open. It is a small
 feature with a few decisions in it worth defending.
 
-**Accounts are optional by construction.** `getAuth()` returns `null` when
-there is no `DATABASE_URL`, so a deployment without a database runs the entire
-analysis and simply never offers to save one. That is not a graceful-degradation
-afterthought: it is the configuration the end-to-end suite runs in, with
-`DATABASE_URL` blanked in `playwright.config.ts` so a developer with one
-exported in their shell cannot accidentally test a different application. The
-alternative — throwing at startup — turns "clone and run" into "clone, sign up
-for a database, then run".
+**Accounts are optional by construction.** `getAuth()` returns `null` unless
+every variable sign-in needs is present, so a deployment without them runs the
+entire analysis and simply never offers to save one. That is not a
+graceful-degradation afterthought: it is the configuration the end-to-end suite
+runs in, with `DATABASE_URL` blanked in `playwright.config.ts` so a developer
+with one exported in their shell cannot accidentally test a different
+application. The alternative — throwing at startup — turns "clone and run" into
+"clone, sign up for a database, then run".
+
+**The first version of that predicate took production down, which is why it is
+now four variables.** It tested `DATABASE_URL` alone — reasonable in general,
+wrong *here*, because the block-group data lives in Postgres too, so every
+deployment has a connection string. Accounts therefore switched themselves on
+in an environment that had none of the rest of the configuration, Better Auth
+refused to start without a secret, and that error came out of the session read
+— which happens on every page. Every route returned 500, including the landing
+page, which needs no account at all. Two fixes, because two things were wrong:
+the predicate now names what is missing, and `viewer()` treats any failure as
+"signed out" and logs it, because the one call made on every page is the worst
+possible place to let an exception escape. A second Playwright server runs that
+exact half-configured environment (`e2e/degraded.spec.ts`), and reverting
+either fix turns it red.
 
 **Authorization is a condition in the query, not a check after it.** Every
 function in `lib/saved.ts` takes the owner's id and puts it in the `WHERE`
@@ -261,7 +275,9 @@ something the environment is trusted to have done.
 - **Integration** — authorization against a real Postgres: a stranger cannot
   rename or delete someone else's saved analysis, deleting an account takes its
   analyses with it, and the database refuses a row that could never be re-run.
-  These refuse to skip when `CI` is set.
+  These refuse to skip when `CI` is set, and refuse to *run* against a
+  `DATABASE_URL` that is not plainly local or named for testing — they delete
+  rows, and `npm test` picks up whatever the shell happens to be holding.
 - **End-to-end** — a real production build against the sampled dataset, so the
   suite needs no database and no API key while still exercising the real
   analysis over real geometry. It asserts that the answer is in the first HTML
@@ -269,7 +285,10 @@ something the environment is trusted to have done.
   the block groups the page says matched, that the layout holds from 390px to
   1680px, that a dead share link answers 404 and a signed-out visit to `/saved`
   answers 307, and — with touch emulation — that tapping a block group opens
-  its numbers.
+  its numbers. A second server runs the same build in a half-configured
+  environment — a connection string and nothing else, the state that once took
+  production down — and asserts that every public route still answers and that
+  none of them answers 500.
 - **A negative control** — one spec removes the Web Worker and asserts the map
   renders *nothing*. A regression test that has never failed is a guess about
   what it measures; this one reproduces the original fault and watches the

@@ -17,7 +17,7 @@ import 'server-only';
 
 import { and, desc, eq } from 'drizzle-orm';
 
-import { db, hasDatabase } from '@/db/client';
+import { db } from '@/db/client';
 import { savedAnalysis } from '@/db/schema';
 
 export interface SavedAnalysis {
@@ -71,15 +71,13 @@ export async function listForUser(userId: string): Promise<SavedAnalysis[]> {
 /**
  * Public: anyone holding the link can read it.
  *
- * Null rather than a thrown error where there is no database. `/a/<slug>` is
- * the one route a stranger can reach without an account, so it is also the one
- * route that is reachable on a deployment that has no accounts — and on that
- * deployment no share link was ever created, which makes "not found" the true
- * answer rather than a papered-over 500.
+ * This module assumes a database that has been migrated, and says nothing
+ * about whether the deployment it is running on has one — that is the route's
+ * question, and `/a/[slug]` answers it before calling here. Keeping the check
+ * out of the data layer is what lets the integration tests point this straight
+ * at a Postgres without also having to satisfy the auth configuration.
  */
 export async function getBySlug(slug: string): Promise<SavedAnalysis | null> {
-  if (!hasDatabase()) return null;
-
   const [row] = await db()
     .select({
       slug: savedAnalysis.slug,

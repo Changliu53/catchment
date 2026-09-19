@@ -16,6 +16,13 @@
  * skip is allowed on a laptop and refused in CI: if the service container or
  * the environment variable ever goes missing, this file fails rather than
  * disappears.
+ *
+ * And the other direction matters more. These tests delete rows. `npm test`
+ * picks up whatever DATABASE_URL the shell or a `.env` file happens to hold,
+ * and on a machine where someone has just pulled production credentials to run
+ * a migration, that is production. So anything that is not plainly a local or
+ * test database is refused by name, rather than trusted because it parsed.
+ * Opting out is possible and deliberately awkward.
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -33,12 +40,51 @@ import {
   renameFor,
 } from '@/lib/saved';
 
-const live = Boolean(process.env.DATABASE_URL);
+const connection = process.env.DATABASE_URL;
+const live = Boolean(connection);
 
 if (!live && process.env.CI) {
   throw new Error(
     'DATABASE_URL is not set in CI, so the authorization tests would have been skipped. ' +
       'They are the only tests that can prove one account cannot read another account’s rows.',
+  );
+}
+
+if (live && !process.env.CATCHMENT_ALLOW_REMOTE_TEST_DB) {
+  assertDisposable(connection!);
+}
+
+/**
+ * Refuse a database these tests have no business writing to.
+ *
+ * The check is on the host and the database name rather than on reachability,
+ * because by the time a connection has succeeded the damage is one query away.
+ * It also turns the most common local mistake — a stale or placeholder
+ * DATABASE_URL in a `.env` file, which Vitest loads — from a driver stack
+ * trace into a sentence naming the host it was about to talk to.
+ */
+function assertDisposable(value: string): void {
+  let host: string;
+  let name: string;
+  try {
+    const parsed = new URL(value);
+    host = parsed.hostname;
+    name = parsed.pathname.replace(/^\//, '');
+  } catch {
+    throw new Error(
+      `DATABASE_URL is not a valid connection string (${JSON.stringify(value.slice(0, 24))}…). ` +
+        'These tests write and delete rows, so they will not guess at it.',
+    );
+  }
+
+  const local = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(host);
+  if (local || /test/i.test(name)) return;
+
+  throw new Error(
+    `Refusing to run the authorization tests against "${host}" (database "${name}"). ` +
+      'They delete rows, and this is not a local database or one named for testing. ' +
+      'Point DATABASE_URL at a throwaway Postgres, or set ' +
+      'CATCHMENT_ALLOW_REMOTE_TEST_DB=1 if you are certain.',
   );
 }
 
