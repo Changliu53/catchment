@@ -120,7 +120,12 @@ export default function Home() {
 
   // Classification happens once, in one place. If the map computed its own
   // breaks the legend would be describing a different map than the one drawn.
-  const colorBy = result?.plan.color_by ?? null;
+  // A comparison shades by the field it is comparing. The question is about
+  // income; painting only which side of the flood threshold each block group
+  // falls on answers half of it and leaves the measure off the map entirely.
+  // Taking `measure` as colorBy means the whole choropleth path — quantile
+  // breaks, the legend, the no-data grey — applies unchanged.
+  const colorBy = result?.plan.color_by ?? result?.comparison?.measure ?? null;
 
   // Nulls are counted, never coerced. `Number(null)` is 0, so mapping the
   // values straight through put 273 block groups with suppressed income at the
