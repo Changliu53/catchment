@@ -1,13 +1,25 @@
 /**
- * Shown while the server works out an answer.
+ * The shape of the page, shown while the server works out an answer.
  *
  * It mirrors the real layout rather than centring a spinner, so the page does
  * not jump when the answer arrives: the controls keep their 45% on a phone and
  * their 26rem column on a laptop, and the map keeps the rest. A spinner in the
  * middle of the viewport would be replaced by a completely different shape.
+ *
+ * This used to be `app/loading.tsx`, and moving it out of the routing
+ * convention was a correctness fix rather than tidying. A `loading.tsx` at the
+ * app root puts a Suspense boundary above *every* route beneath it, which
+ * makes Next commit the response — status line included — before the page has
+ * rendered. `notFound()` then produced a 404 page under a 200, and
+ * `redirect()` became a client-side hop instead of a 307: invisible in a
+ * browser, wrong to every crawler, link checker and unfurler, which for a URL
+ * people paste into other products is most of the audience.
+ *
+ * As a component, each route puts the boundary exactly where it wants one —
+ * around the slow part, below the decisions that determine the status code.
  */
 
-export default function Loading() {
+export default function Skeleton() {
   return (
     <main className="flex h-dvh flex-col lg:flex-row" aria-busy="true">
       <aside className="flex h-[45dvh] w-full shrink-0 flex-col gap-5 overflow-hidden border-b border-slate-200 bg-white p-5 lg:h-full lg:w-[26rem] lg:border-b-0 lg:border-r">
