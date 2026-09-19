@@ -108,6 +108,40 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
+  # ----------------------------------------------------------------- pipeline --
+  # The Python pipeline, which until now CI never touched.
+  #
+  # That gap had a cost and it was nearly paid: a Dependabot pull request
+  # bumping pandas, pyproj and psycopg collected three green checks that were
+  # all about the JavaScript, and one of those bumps made the pipeline
+  # uninstallable on Python 3.11. A check that reports success about something
+  # it never looked at is the failure this repository keeps finding in its own
+  # tooling, and this is the last place it was still true.
+  #
+  # It does not gate the deploy: the pipeline is not part of what ships, it is
+  # what produced the data that already shipped. It does turn the run red,
+  # which is the point.
+  pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          # The floor requirements.txt states, not the newest available. A
+          # dependency that quietly needs something newer should fail here.
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: pipeline/requirements.txt
+
+      - name: Install
+        run: pip install -r pipeline/requirements.txt
+
+      - name: Smoke
+        run: python pipeline/smoke.py
+
   # ---------------------------------------------------------------- preview --
   preview:
     needs: test

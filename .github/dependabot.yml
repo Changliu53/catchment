@@ -68,3 +68,10 @@ updates:
         update-types: [minor, patch]
       pipeline-major:
         update-types: [major]
+    ignore:
+      # 3.8 raises the Python floor to 3.12, which pip calls a minor release
+      # and anyone on 3.11 experiences as a refusal to install. Lifting this is
+      # a decision about which Python the pipeline requires — see the comment
+      # in pipeline/requirements.txt — not something to merge on a tick.
+      - dependency-name: pyproj
+        versions: ['>=3.8']
