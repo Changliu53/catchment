@@ -246,6 +246,14 @@ test job brings up a `postgres:17` service container and applies the committed
 migrations to an empty database first, so a migration that only works where the
 table already exists fails there rather than in production.
 
+`typecheck` runs `next typegen` before `tsc`, which is not tidying. Next's typed
+routes live in generated declarations, so `tsc` on a checkout with no `.next`
+directory — exactly what CI has — type-checks every `Link` and `redirect`
+against a route table that does not exist, and passes. A stale `.next` is worse:
+it checks against last build's routes and rejects one that now exists. Both
+failure modes are silent, so the generation is part of the command rather than
+something the environment is trusted to have done.
+
 - **Unit** — the executor on hand-built rows, including the null and tie
   cases; the validator rejecting plans that type-check but mean nothing; the
   classifier; the projection behind the social cards; and an assertion about
