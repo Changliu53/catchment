@@ -1,0 +1,72 @@
+# The model evaluation, on a schedule and on demand — deliberately not on push.
+#
+# A model call per push is a bill that grows with commit frequency, a
+# third-party dependency inside the gate that decides whether code ships, and,
+# because the model is non-deterministic, a build that can go red for reasons
+# the commit did not cause. A CI job that fails on its own teaches people to
+# ignore red.
+#
+# What runs on every push is the offline half (src/lib/__tests__/evals.test.ts,
+# inside `npm test`): it checks that the corpus is well-formed and that the
+# grader actually discriminates, and it calls no model. See evals/README.md.
+name: eval
+
+on:
+  schedule:
+    # Mondays, 09:00 UTC. A weekly number is enough to see drift; a daily one
+    # is a number nobody looks at.
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      threshold:
+        description: 'Minimum pass rate (0-1)'
+        required: false
+        default: '0.85'
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Without the secret this job would fail every Monday for a reason
+      # nobody can fix from the repository. A skip that says so is better than
+      # a red badge that means nothing.
+      - name: Check for an API key
+        id: key
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "ANTHROPIC_API_KEY is not set for this repository; skipping the live run." \
+              >> "$GITHUB_STEP_SUMMARY"
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run the evaluation
+        if: steps.key.outputs.present == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          # pipefail, explicitly: GitHub's default shell is `bash -e`, which
+          # does not set it, so a failing `npm run eval` piped into `tee` would
+          # exit 0 and the job would pass while the score was below threshold.
+          # That is the exact failure this repository keeps finding elsewhere.
+          set -o pipefail
+          npm run eval -- --threshold "${{ inputs.threshold || '0.85' }}" \
+            | tee eval.log
+          {
+            echo '## Model evaluation'
+            echo '```'
+            tail -n 12 eval.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
