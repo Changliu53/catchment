@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+import { E2E_AUTH_SECRET, E2E_DATABASE_URL } from './e2e/authed-env';
+
 /**
  * The end-to-end suite runs against a production build, on purpose.
  *
@@ -9,10 +11,12 @@ import { defineConfig, devices } from '@playwright/test';
  * and reported nothing. `next build && next start` is the only configuration
  * in which the original failure reproduces.
  *
- * Three servers, because "does it work", "does it survive a half-configured
- * environment" and "does it say so when the database is down" are different
- * questions, and a process can only be asked one of them. All three run the
- * same build; they differ only in environment.
+ * Four servers, because "does it work", "does it survive a half-configured
+ * environment", "does it say so when the database is down" and "does the
+ * signed-in flow hold end to end" are different questions, and a process can
+ * only be asked one of them. All four run the same build; they differ only in
+ * environment. The last needs a migrated Postgres and is left out when there
+ * is none — see `e2e/authed-env.ts`.
  */
 
 const PORT = Number(process.env.E2E_PORT ?? 3100);
@@ -20,6 +24,9 @@ const PORT = Number(process.env.E2E_PORT ?? 3100);
 const DEGRADED_PORT = PORT + 1;
 /** Accounts configured, database refusing connections. */
 const OUTAGE_PORT = PORT + 2;
+/** Signed in, against a real database. Omitted when there is none to use. */
+const AUTHED_PORT = PORT + 3;
+
 /** Nothing listens here. Anything that tries to connect fails immediately. */
 const DEAD_DATABASE = 'postgresql://postgres:postgres@127.0.0.1:59999/not_migrated';
 
@@ -48,7 +55,7 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      testIgnore: /(degraded|outage)\.spec\.ts/,
+      testIgnore: /(degraded|outage|authed)\.spec\.ts/,
       use: { ...chrome, baseURL: `http://127.0.0.1:${PORT}` },
     },
     {
@@ -61,6 +68,13 @@ export default defineConfig({
       testMatch: /outage\.spec\.ts/,
       use: { ...chrome, baseURL: `http://127.0.0.1:${OUTAGE_PORT}` },
     },
+    ...(E2E_DATABASE_URL
+      ? [{
+          name: 'authed',
+          testMatch: /authed\.spec\.ts/,
+          use: { ...chrome, baseURL: `http://127.0.0.1:${AUTHED_PORT}` },
+        }]
+      : []),
   ],
 
   webServer: [
@@ -125,5 +139,35 @@ export default defineConfig({
       stdout: 'pipe',
       stderr: 'pipe',
     },
+    ...(E2E_DATABASE_URL
+      ? [{
+          // The only server here with working accounts. `authed.spec.ts`
+          // creates its session directly in this database and signs the cookie
+          // with the same secret, because real GitHub OAuth needs a third
+          // party's consent screen and a test suite should not.
+          command: `npx next start --port ${AUTHED_PORT}`,
+          env: {
+            CATCHMENT_DATA: 'fixture',
+            DATABASE_URL: E2E_DATABASE_URL,
+            BETTER_AUTH_SECRET: E2E_AUTH_SECRET,
+            GITHUB_CLIENT_ID: 'e2e-not-a-real-client-id',
+            GITHUB_CLIENT_SECRET: 'e2e-not-a-real-client-secret',
+            BETTER_AUTH_URL: `http://127.0.0.1:${AUTHED_PORT}`,
+          },
+          url: `http://127.0.0.1:${AUTHED_PORT}`,
+          reuseExistingServer: !process.env.CI,
+          timeout: 240_000,
+          stdout: 'pipe' as const,
+          stderr: 'pipe' as const,
+        }]
+      : []),
   ],
 });
+
+if (!E2E_DATABASE_URL) {
+  // Loud rather than silent: a project that quietly disappears is how a suite
+  // stops covering the thing it was written for.
+  console.warn(
+    '[playwright] signed-in tests skipped: set E2E_DATABASE_URL to a migrated Postgres to run them. They always run in CI.',
+  );
+}

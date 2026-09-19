@@ -8,6 +8,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
+import { deleteAnalysis } from '@/app/actions';
 import { listForUser, pathFor, questionFor } from '@/lib/saved';
 import { viewer } from '@/lib/session';
 
@@ -55,7 +56,7 @@ export default async function Saved() {
           {rows.map((row) => (
             <li
               key={row.slug}
-              className="flex items-baseline justify-between gap-4 rounded-md border border-slate-200 p-3"
+              className="flex items-start justify-between gap-4 rounded-md border border-slate-200 p-3"
             >
               <div className="min-w-0">
                 <div className="flex items-baseline gap-2">
@@ -79,12 +80,32 @@ export default async function Saved() {
                     unreadable in a list of your own work. */}
                 <p className="mt-0.5 truncate text-xs text-slate-600">{questionFor(row)}</p>
               </div>
-              <time
-                dateTime={row.createdAt.toISOString()}
-                className="shrink-0 text-xs tabular-nums text-slate-400"
-              >
-                {when.format(row.createdAt)}
-              </time>
+              <div className="flex shrink-0 items-baseline gap-3">
+                <time
+                  dateTime={row.createdAt.toISOString()}
+                  className="text-xs tabular-nums text-slate-400"
+                >
+                  {when.format(row.createdAt)}
+                </time>
+
+                {/* Deleting used to require opening the analysis first, which
+                    is the wrong way round: the list is where you tidy up. Two
+                    steps because it cannot be undone, and a native <details>
+                    rather than confirm() so it still works without
+                    JavaScript. */}
+                <details>
+                  <summary className="cursor-pointer list-none text-xs text-slate-400 underline-offset-2 hover:text-red-700 hover:underline">
+                    Delete
+                  </summary>
+                  <form action={deleteAnalysis} className="mt-1 flex items-center gap-2">
+                    <input type="hidden" name="slug" value={row.slug} />
+                    <span className="text-[11px] text-slate-500">Cannot be undone.</span>
+                    <button className="rounded border border-red-300 px-2 py-0.5 text-[11px] font-medium text-red-700 transition hover:bg-red-50">
+                      Delete
+                    </button>
+                  </form>
+                </details>
+              </div>
             </li>
           ))}
         </ul>
