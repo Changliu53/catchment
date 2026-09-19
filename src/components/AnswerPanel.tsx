@@ -30,8 +30,8 @@ export default function AnswerPanel({ answer }: { answer: Answer }) {
 
       {answer.empty ? (
         <p className="text-sm text-slate-700">
-          No block groups match. That is an answer, not an error — nothing in the county meets
-          every condition at once.
+          No block groups match. That is an answer, not an error — nothing in the county meets every
+          condition at once.
         </p>
       ) : (
         <p className="text-sm text-slate-700">

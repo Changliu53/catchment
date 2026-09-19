@@ -94,9 +94,9 @@ export default function AccountBar({ name }: Props) {
         </button>
 
         {problem ? (
-          <p role="status" className="max-w-[15rem] text-right text-[11px] leading-snug text-red-700">
+          <output className="block max-w-[15rem] text-right text-[11px] leading-snug text-red-700">
             {problem}
-          </p>
+          </output>
         ) : null}
       </div>
     );

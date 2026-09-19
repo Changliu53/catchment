@@ -20,6 +20,8 @@ from __future__ import annotations
 import gzip
 from pathlib import Path
 
+import paths
+
 import geopandas as gpd
 from shapely import to_wkb
 from shapely.geometry import MultiPolygon
@@ -72,8 +74,10 @@ def build(src: Path, out_csv: Path) -> int:
 
 
 def main() -> int:
-    src = Path("/home/claude/catchment/build/blockgroups_analyzed.geojson")
-    out = Path("/home/claude/catchment/build/block_groups.csv.gz")
+    args = paths.parser(__doc__.strip().splitlines()[0]).parse_args()
+    src = paths.require(args.build / paths.ANALYZED.name, "run spatial.py first")
+    out = args.build / paths.TABLE.name
+    out.parent.mkdir(parents=True, exist_ok=True)
     n = build(src, out)
     print(f"rows    : {n}")
     print(f"wrote   : {out} ({out.stat().st_size / 1e6:.1f} MB gzipped)")

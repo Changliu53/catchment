@@ -12,7 +12,11 @@ const MAX_ENTRIES = 500;
 
 /** Lowercase, collapse whitespace, drop trailing punctuation. */
 export function normaliseQuestion(q: string): string {
-  return q.toLowerCase().replace(/\s+/g, ' ').replace(/[?.!,;:]+$/, '').trim();
+  return q
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .replace(/[?.!,;:]+$/, '')
+    .trim();
 }
 
 class LruCache<V> {

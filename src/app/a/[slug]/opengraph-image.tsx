@@ -41,8 +41,7 @@ async function load(slug: string): Promise<{ title: string; question: string | n
     // A saved row holds a preset id or free text, never both. Either way the
     // card should show the question a reader would recognise, so a preset is
     // resolved back to its wording rather than captioned generically.
-    const question =
-      row.question ?? PRESETS.find((p) => p.id === row.presetId)?.question ?? null;
+    const question = row.question ?? PRESETS.find((p) => p.id === row.presetId)?.question ?? null;
 
     return { title: row.title, question };
   } catch {
@@ -62,72 +61,70 @@ export default async function Image({ params }: { params: Promise<{ slug: string
     : 'Flood exposure and service access across Harris County, Texas';
 
   return new ImageResponse(
-    (
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        padding: 72,
+        background: '#f8fafc',
+        fontFamily: 'sans-serif',
+      }}
+    >
+      <div style={{ display: 'flex', flex: 1, alignItems: 'center', gap: 48 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+          <div
+            style={{
+              fontSize: 22,
+              fontWeight: 600,
+              letterSpacing: 4,
+              textTransform: 'uppercase',
+              color: '#2563eb',
+            }}
+          >
+            {row ? 'Saved analysis' : 'Catchment'}
+          </div>
+          <div
+            style={{
+              fontSize: 58,
+              fontWeight: 700,
+              color: '#0f172a',
+              letterSpacing: -1.5,
+              marginTop: 18,
+              lineHeight: 1.15,
+            }}
+          >
+            {title}
+          </div>
+          <div style={{ fontSize: 30, color: '#475569', marginTop: 24, lineHeight: 1.35 }}>
+            {subtitle}
+          </div>
+        </div>
+
+        <svg width={260} height={260} viewBox="0 0 260 260">
+          <path d={d} fill="#1d4ed8" fillOpacity={0.12} stroke="#1e3a8a" strokeWidth={2} />
+        </svg>
+      </div>
+
       <div
         style={{
-          width: '100%',
-          height: '100%',
           display: 'flex',
-          flexDirection: 'column',
           justifyContent: 'space-between',
-          padding: 72,
-          background: '#f8fafc',
-          fontFamily: 'sans-serif',
+          alignItems: 'center',
+          fontSize: 24,
+          color: '#64748b',
+          borderTop: '2px solid #e2e8f0',
+          paddingTop: 28,
         }}
       >
-        <div style={{ display: 'flex', flex: 1, alignItems: 'center', gap: 48 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-            <div
-              style={{
-                fontSize: 22,
-                fontWeight: 600,
-                letterSpacing: 4,
-                textTransform: 'uppercase',
-                color: '#2563eb',
-              }}
-            >
-              {row ? 'Saved analysis' : 'Catchment'}
-            </div>
-            <div
-              style={{
-                fontSize: 58,
-                fontWeight: 700,
-                color: '#0f172a',
-                letterSpacing: -1.5,
-                marginTop: 18,
-                lineHeight: 1.15,
-              }}
-            >
-              {title}
-            </div>
-            <div style={{ fontSize: 30, color: '#475569', marginTop: 24, lineHeight: 1.35 }}>
-              {subtitle}
-            </div>
-          </div>
-
-          <svg width={260} height={260} viewBox="0 0 260 260">
-            <path d={d} fill="#1d4ed8" fillOpacity={0.12} stroke="#1e3a8a" strokeWidth={2} />
-          </svg>
-        </div>
-
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            fontSize: 24,
-            color: '#64748b',
-            borderTop: '2px solid #e2e8f0',
-            paddingTop: 28,
-          }}
-        >
-          <div style={{ display: 'flex' }}>Harris County, Texas · 2,830 block groups</div>
-          {/* Stated on the card because it changes what the number means: the
+        <div style={{ display: 'flex' }}>Harris County, Texas · 2,830 block groups</div>
+        {/* Stated on the card because it changes what the number means: the
               question is stored, not the answer, so the link re-runs. */}
-          <div style={{ display: 'flex' }}>Re-run against current data</div>
-        </div>
+        <div style={{ display: 'flex' }}>Re-run against current data</div>
       </div>
-    ),
+    </div>,
     size,
   );
 }

@@ -21,7 +21,10 @@
   --color-ramp-5: oklch(0.31 0.13 280);
 }
 
-html, body { height: 100%; }
+html,
+body {
+  height: 100%;
+}
 body {
   background: var(--color-surface);
   color: var(--color-ink);

@@ -161,7 +161,10 @@ describe.skipIf(!live)('saved analyses', () => {
   });
 
   it('stores the question, never the result', async () => {
-    const slug = await createFor(OWNER, { title: 'Re-runnable', presetId: 'most-exposed-population' });
+    const slug = await createFor(OWNER, {
+      title: 'Re-runnable',
+      presetId: 'most-exposed-population',
+    });
     const [row] = await db().select().from(savedAnalysis).where(eq(savedAnalysis.slug, slug));
 
     // Re-running is cheap; a stored result would go stale the next time the

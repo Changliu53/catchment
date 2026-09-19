@@ -56,9 +56,11 @@ describe('viewer', () => {
   });
 
   it('is anonymous when the database is unreachable', async () => {
-    getSession.mockRejectedValue(Object.assign(new Error('connect ECONNREFUSED'), {
-      code: 'ECONNREFUSED',
-    }));
+    getSession.mockRejectedValue(
+      Object.assign(new Error('connect ECONNREFUSED'), {
+        code: 'ECONNREFUSED',
+      }),
+    );
 
     await expect(viewer()).resolves.toBeNull();
   });

@@ -115,10 +115,9 @@ describe('pipelines', () => {
 describe('compare', () => {
   it('splits on the threshold and describes both groups', () => {
     const r = execute(
-      plan(
-        [{ op: 'compare', measure: 'median_income', split_on: 'flood_pct', threshold: 0.5 }],
-        { render: 'comparison' },
-      ),
+      plan([{ op: 'compare', measure: 'median_income', split_on: 'flood_pct', threshold: 0.5 }], {
+        render: 'comparison',
+      }),
       FIXTURE_ROWS,
     );
     // above: A(40k), B(80k) — E dropped for null income. below: C(25k), D(120k).

@@ -33,8 +33,8 @@ export default function Error({
       <div className="max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
         <h1 className="text-base font-semibold text-slate-900">Something broke on our side</h1>
         <p className="mt-2 text-sm leading-relaxed text-slate-600">
-          This one was not anticipated, so there is no useful explanation to give — the failures
-          we do understand come back as an ordinary answer saying what went wrong.
+          This one was not anticipated, so there is no useful explanation to give — the failures we
+          do understand come back as an ordinary answer saying what went wrong.
         </p>
 
         {error.digest && (

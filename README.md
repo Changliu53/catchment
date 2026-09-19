@@ -10,9 +10,9 @@ data, and drawn as a map.
 
 ![Income compared between block groups above and below 50% floodplain coverage: the statistics and the audit trail on the left, and a two-channel map on the right where colour is income and the orange outline is the floodplain group](docs/hero.png)
 
-Google Maps can tell you where a supermarket is. It cannot express *"more than
+Google Maps can tell you where a supermarket is. It cannot express _"more than
 half of this area sits in the 100-year floodplain **and** its centre is over a
-kilometre from the nearest supermarket"*, and it will not tell you how many
+kilometre from the nearest supermarket"_, and it will not tell you how many
 people live there. That gap is the whole project.
 
 Next.js 16 App Router, React 19, TypeScript in strict mode, Postgres with
@@ -33,7 +33,7 @@ If you read nothing else:
   mock agrees with whatever the code asks it, including a query missing half
   its conditions.
 - **The tests include negative controls.** One spec removes the Web Worker and
-  asserts the map renders *nothing*. A regression test that has never failed is
+  asserts the map renders _nothing_. A regression test that has never failed is
   a guess about what it measures.
 - **The UI was measured, not eyeballed.** The map once had a height of exactly
   zero on a 390px screen. That is now asserted at five widths with touch
@@ -139,7 +139,7 @@ pointing at the network.
 **Types hold at the boundary, not just inside it.** Strict TypeScript with
 `noUncheckedIndexedAccess`, and every payload crossing into the executor is
 re-parsed by a Zod discriminated union first. One field dictionary in
-`schema.ts` generates the prompt text *and* the tool schema, so the two cannot
+`schema.ts` generates the prompt text _and_ the tool schema, so the two cannot
 drift — the failure where a prompt still advertises a field renamed six
 commits ago is structurally impossible.
 
@@ -231,12 +231,12 @@ as no card at all.
 
 ## The data
 
-| Source | What it provides | Vintage |
-| --- | --- | --- |
-| Census TIGER/Line | Block-group boundaries | 2024 |
-| Census ACS 5-year | Population, median household income | 2024 release |
-| FEMA National Flood Hazard Layer | 1% and 0.2% annual-chance flood zones | current NFHL |
-| OpenStreetMap | Supermarkets and parks (ODbL) | extract via Overpass |
+| Source                           | What it provides                      | Vintage              |
+| -------------------------------- | ------------------------------------- | -------------------- |
+| Census TIGER/Line                | Block-group boundaries                | 2024                 |
+| Census ACS 5-year                | Population, median household income   | 2024 release         |
+| FEMA National Flood Hazard Layer | 1% and 0.2% annual-chance flood zones | current NFHL         |
+| OpenStreetMap                    | Supermarkets and parks (ODbL)         | extract via Overpass |
 
 A Python pipeline (`pipeline/`) joins these, computes the flood overlay and the
 nearest-facility distances, and loads the result into Neon Postgres with
@@ -256,7 +256,7 @@ are wrong by a factor that varies with latitude.
   block groups. They are excluded from statistics rather than coerced, they
   sort last in both directions, they are shaded in a neutral grey outside the
   ramp, and the legend counts them. Coercing them would have painted them as
-  the poorest neighbourhoods in the county *and* dragged every quantile break
+  the poorest neighbourhoods in the county _and_ dragged every quantile break
   downwards, so the error would have reached rows whose data was fine.
 - **Class breaks are quantiles, not equal intervals.** Population density here
   spans three orders of magnitude; equal intervals would paint 95% of the
@@ -284,21 +284,21 @@ table already exists fails there rather than in production.
 - **Integration** — authorization against a real Postgres: a stranger cannot
   rename or delete someone else's saved analysis, deleting an account takes its
   analyses with it, and the database refuses a row that could never be re-run.
-  These refuse to skip when `CI` is set, and refuse to *run* against a
+  These refuse to skip when `CI` is set, and refuse to _run_ against a
   `DATABASE_URL` that is not plainly local or named for testing — they delete
   rows, and `npm test` picks up whatever the shell happens to be holding.
 - **End-to-end**, across four servers running the same production build in four
   different environments:
 
-  | Server | Environment | What it proves |
-  | --- | --- | --- |
-  | default | no database | the analysis, the map, the layout from 390px to 1680px, JavaScript disabled, touch |
-  | degraded | a connection string and nothing else | every public route still answers, and none answers 500 |
-  | outage | accounts configured, database refusing connections | pressing sign-in reports the failure instead of hanging |
-  | authed | accounts working, real Postgres | save → share → rename → delete, and what a stranger is offered |
+  | Server   | Environment                                        | What it proves                                                                     |
+  | -------- | -------------------------------------------------- | ---------------------------------------------------------------------------------- |
+  | default  | no database                                        | the analysis, the map, the layout from 390px to 1680px, JavaScript disabled, touch |
+  | degraded | a connection string and nothing else               | every public route still answers, and none answers 500                             |
+  | outage   | accounts configured, database refusing connections | pressing sign-in reports the failure instead of hanging                            |
+  | authed   | accounts working, real Postgres                    | save → share → rename → delete, and what a stranger is offered                     |
 
 - **A negative control** — one spec removes the Web Worker and asserts the map
-  renders *nothing*. A regression test that has never failed is a guess about
+  renders _nothing_. A regression test that has never failed is a guess about
   what it measures; this one reproduces the original fault and watches the
   probe go to zero.
 
@@ -330,20 +330,20 @@ next to it removes the worker deliberately and watches the probe go to zero.
 
 **Suppressed income was painted as the poorest.** 273 of 2,830 block groups
 have no income figure, and coercing them to zero shaded them as the poorest
-neighbourhoods in the county *and* dragged every quantile break downward — so
+neighbourhoods in the county _and_ dragged every quantile break downward — so
 the error reached rows whose data was fine. Found by reading the colour
 expression, then verified against MapLibre's own evaluator: `['==', ['get', f],
 null]` is correct, and the obvious `to-number` sentinel silently never fires.
 
 **A dead share link returned 200.** The app had an `app/loading.tsx`, which
-puts a Suspense boundary above *every* route beneath it. Next then commits the
+puts a Suspense boundary above _every_ route beneath it. Next then commits the
 response — status line included — before any page has decided what it is, so
 `notFound()` rendered a 404 page under a **200**, and `redirect()` became a
 client-side hop instead of a 307. Invisible in a browser; wrong to every
 crawler, link checker and unfurler, which for a URL people paste into other
 products is most of the audience. The fix was to stop using the routing
 convention and place the boundary as a component, around the slow part and
-*below* the lookup that decides the status. `e2e/accounts.spec.ts` asserts the
+_below_ the lookup that decides the status. `e2e/accounts.spec.ts` asserts the
 status codes at the protocol level, because a browser cannot tell the two apart.
 
 **An optional feature took the whole site down.** Accounts were made optional

@@ -58,7 +58,8 @@ describe('countyPath', () => {
     const ys = points.map((p) => p[1]!);
 
     const lonScale = Math.cos((29.8 * Math.PI) / 180);
-    const trueAspect = ((Math.max(...xs) - Math.min(...xs)) * lonScale) / (Math.max(...ys) - Math.min(...ys));
+    const trueAspect =
+      ((Math.max(...xs) - Math.min(...xs)) * lonScale) / (Math.max(...ys) - Math.min(...ys));
 
     const { width, height } = countyPath(360, 360);
     expect(width / height).toBeCloseTo(trueAspect, 3);

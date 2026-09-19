@@ -69,11 +69,13 @@ export default defineConfig({
       use: { ...chrome, baseURL: `http://127.0.0.1:${OUTAGE_PORT}` },
     },
     ...(E2E_DATABASE_URL
-      ? [{
-          name: 'authed',
-          testMatch: /authed\.spec\.ts/,
-          use: { ...chrome, baseURL: `http://127.0.0.1:${AUTHED_PORT}` },
-        }]
+      ? [
+          {
+            name: 'authed',
+            testMatch: /authed\.spec\.ts/,
+            use: { ...chrome, baseURL: `http://127.0.0.1:${AUTHED_PORT}` },
+          },
+        ]
       : []),
   ],
 
@@ -140,26 +142,28 @@ export default defineConfig({
       stderr: 'pipe',
     },
     ...(E2E_DATABASE_URL
-      ? [{
-          // The only server here with working accounts. `authed.spec.ts`
-          // creates its session directly in this database and signs the cookie
-          // with the same secret, because real GitHub OAuth needs a third
-          // party's consent screen and a test suite should not.
-          command: `npx next start --port ${AUTHED_PORT}`,
-          env: {
-            CATCHMENT_DATA: 'fixture',
-            DATABASE_URL: E2E_DATABASE_URL,
-            BETTER_AUTH_SECRET: E2E_AUTH_SECRET,
-            GITHUB_CLIENT_ID: 'e2e-not-a-real-client-id',
-            GITHUB_CLIENT_SECRET: 'e2e-not-a-real-client-secret',
-            BETTER_AUTH_URL: `http://127.0.0.1:${AUTHED_PORT}`,
+      ? [
+          {
+            // The only server here with working accounts. `authed.spec.ts`
+            // creates its session directly in this database and signs the cookie
+            // with the same secret, because real GitHub OAuth needs a third
+            // party's consent screen and a test suite should not.
+            command: `npx next start --port ${AUTHED_PORT}`,
+            env: {
+              CATCHMENT_DATA: 'fixture',
+              DATABASE_URL: E2E_DATABASE_URL,
+              BETTER_AUTH_SECRET: E2E_AUTH_SECRET,
+              GITHUB_CLIENT_ID: 'e2e-not-a-real-client-id',
+              GITHUB_CLIENT_SECRET: 'e2e-not-a-real-client-secret',
+              BETTER_AUTH_URL: `http://127.0.0.1:${AUTHED_PORT}`,
+            },
+            url: `http://127.0.0.1:${AUTHED_PORT}`,
+            reuseExistingServer: !process.env.CI,
+            timeout: 240_000,
+            stdout: 'pipe' as const,
+            stderr: 'pipe' as const,
           },
-          url: `http://127.0.0.1:${AUTHED_PORT}`,
-          reuseExistingServer: !process.env.CI,
-          timeout: 240_000,
-          stdout: 'pipe' as const,
-          stderr: 'pipe' as const,
-        }]
+        ]
       : []),
   ],
 });

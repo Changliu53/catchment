@@ -19,6 +19,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import paths
+
 import geopandas as gpd
 import pandas as pd
 
@@ -91,8 +93,11 @@ def build(raw_dir: Path, out: Path) -> gpd.GeoDataFrame:
 
 
 def main() -> int:
-    raw_dir = Path("/mnt/user-data/uploads/personal projects/catchment/raw")
-    out = Path("/home/claude/catchment/build/blockgroups.geojson")
+    args = paths.parser(__doc__.strip().splitlines()[0]).parse_args()
+    raw_dir = paths.require(
+        args.raw, "download the TIGER/Line shapefile and the ACS response into it"
+    )
+    out = args.build / paths.BLOCK_GROUPS.name
     out.parent.mkdir(parents=True, exist_ok=True)
 
     gdf = build(raw_dir, out)
