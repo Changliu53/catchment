@@ -14,8 +14,9 @@ kilometre from the nearest supermarket"*, and it will not tell you how many
 people live there. That gap is the whole project.
 
 Next.js 16 App Router, React 19, TypeScript in strict mode, Postgres with
-PostGIS, and a test suite that runs against a production build before anything
-deploys.
+PostGIS, GitHub sign-in for keeping and sharing an analysis, and a test suite —
+unit, integration against a real database, and end-to-end against a production
+build — that runs before anything deploys.
 
 ## Architecture
 
@@ -27,12 +28,14 @@ flowchart TB
   end
 
   subgraph server["Vercel — Node runtime"]
-    PAGE["page.tsx<br/>Server Component"]
+    PAGE["page.tsx · the share route<br/>Server Components"]
     ANS["answerFor()"]
     VAL["Validation<br/>Zod + semantic checks"]
     EXE["Executor<br/>pure function, no I/O"]
     MEM[("rows held in memory")]
     API["/api/query<br/>the same function, as JSON"]
+    ACT["Server Actions<br/>save · rename · delete"]
+    SES["viewer()<br/>Better Auth"]
   end
 
   subgraph ext["External"]
@@ -50,6 +53,11 @@ flowchart TB
   MEM --> EXE
   DB -->|"read once per instance"| MEM
   EXE -->|"HTML + GeoJSON"| MAP
+  PAGE --> SES
+  ACT --> SES
+  SES -->|"sessions"| DB
+  ACT -->|"saved questions"| DB
+  DB -->|"slug → question"| PAGE
 ```
 
 **The question is in the URL, and the answer is in the HTML.** The page is a
@@ -119,6 +127,77 @@ in Playwright at five widths with touch emulation. The responsive legend
 switches layout in CSS rather than by measuring the viewport during render,
 which would disagree with the server-rendered HTML.
 
+## Accounts and saved analyses
+
+Sign in with GitHub, keep a question, get a link anyone can open. It is a small
+feature with a few decisions in it worth defending.
+
+**Accounts are optional by construction.** `getAuth()` returns `null` when
+there is no `DATABASE_URL`, so a deployment without a database runs the entire
+analysis and simply never offers to save one. That is not a graceful-degradation
+afterthought: it is the configuration the end-to-end suite runs in, with
+`DATABASE_URL` blanked in `playwright.config.ts` so a developer with one
+exported in their shell cannot accidentally test a different application. The
+alternative — throwing at startup — turns "clone and run" into "clone, sign up
+for a database, then run".
+
+**Authorization is a condition in the query, not a check after it.** Every
+function in `lib/saved.ts` takes the owner's id and puts it in the `WHERE`
+clause; `UPDATE … WHERE slug = $1 AND user_id = $2 RETURNING slug` tells you
+whether it applied. The alternative — fetch by slug, then compare `row.userId`
+to the session — works right up until one caller forgets the second half, and
+that caller is a data leak that returns 200. "Not yours" and "does not exist"
+give the same answer, so a probe learns nothing.
+
+**Those claims are tested against a real Postgres.** A mock query builder
+agrees with whatever the code asks it, including a query missing half its
+conditions, so `saved.integration.test.ts` runs against an actual database:
+CI starts a `postgres:17` service container and applies the committed
+migrations first. The suite skips itself when no database is configured — and
+**refuses to skip when `CI` is set**, because a suite that quietly skips its
+only security assertions reports exactly the same green as one that ran them.
+
+**The database enforces what the code believes.** A saved row must have
+exactly one source — a preset or a free-text question, never both and never
+neither — and that is a `CHECK` constraint, not just a branch in TypeScript.
+The test asserts on the driver's `constraint` name rather than on an error
+message, so it cannot pass because some other rule happened to reject the row.
+
+**It stores the question, not the answer.** Opening a share link re-runs the
+analysis, so a saved link cannot quietly serve last year's floodplain. The page
+says so rather than leaving a reader to assume they are seeing a snapshot.
+
+**Saving, renaming and deleting work without JavaScript.** They are Server
+Actions taking a bare `FormData`, bound to plain `<form action={…}>`, so they
+keep the property the rest of the page has. Each action re-reads the session
+itself — a hidden input claiming who you are is a suggestion, and a Server
+Action is a public endpoint whatever the button looked like.
+
+**Sessions live in the database, with a five-minute signed-cookie cache.** A
+stateless JWT would be one fewer moving part and would make sign-out a lie.
+The cache is the stated trade in the other direction: a session revoked on one
+device can survive on another until the cookie expires, which is why the window
+is five minutes rather than five hours. Anonymous requests touch the database
+zero times either way.
+
+**A dead share link returns 404, and this took finding.** The app had an
+`app/loading.tsx`, which puts a Suspense boundary above *every* route beneath
+it. Next then commits the response — status line included — before any page has
+decided what it is, so `notFound()` rendered a 404 page under a **200**, and
+`redirect()` became a client-side hop instead of a 307. Invisible in a browser;
+wrong to every crawler, link checker and unfurler, which for a URL people paste
+into other products is most of the audience. The fix was to stop using the
+routing convention and place the boundary as a component, around the slow part
+and *below* the lookup that decides the status. `e2e/accounts.spec.ts` asserts
+the status codes at the protocol level, because a browser cannot tell the two
+apart.
+
+Each saved analysis also generates its own social card at request time
+(`next/og`), titled with the saved name and captioned with the question, over
+the same county outline the map draws. It falls back to the generic card when
+the slug is gone or the database is absent — an image route that throws unfurls
+as no card at all.
+
 ## The data
 
 | Source | What it provides | Vintage |
@@ -158,22 +237,31 @@ are wrong by a factor that varies with latitude.
 ## Tests
 
 ```bash
-npm test            # unit
+npm test            # unit, plus integration if DATABASE_URL is set
 npm run test:e2e    # end-to-end, against a production build
 ```
 
-Both run in CI on every push, and a deploy only happens after they pass.
+Both run in CI on every push, and a deploy only happens after they pass. The
+test job brings up a `postgres:17` service container and applies the committed
+migrations to an empty database first, so a migration that only works where the
+table already exists fails there rather than in production.
 
 - **Unit** — the executor on hand-built rows, including the null and tie
   cases; the validator rejecting plans that type-check but mean nothing; the
-  classifier; and an assertion about how `maplibre-gl` packages its Web Worker.
+  classifier; the projection behind the social cards; and an assertion about
+  how `maplibre-gl` packages its Web Worker.
+- **Integration** — authorization against a real Postgres: a stranger cannot
+  rename or delete someone else's saved analysis, deleting an account takes its
+  analyses with it, and the database refuses a row that could never be re-run.
+  These refuse to skip when `CI` is set.
 - **End-to-end** — a real production build against the sampled dataset, so the
   suite needs no database and no API key while still exercising the real
   analysis over real geometry. It asserts that the answer is in the first HTML
   response and survives with JavaScript disabled, that the map renders exactly
   the block groups the page says matched, that the layout holds from 390px to
-  1680px, and — with touch emulation — that tapping a block group opens its
-  numbers.
+  1680px, that a dead share link answers 404 and a signed-out visit to `/saved`
+  answers 307, and — with touch emulation — that tapping a block group opens
+  its numbers.
 - **A negative control** — one spec removes the Web Worker and asserts the map
   renders *nothing*. A regression test that has never failed is a guess about
   what it measures; this one reproduces the original fault and watches the
@@ -226,6 +314,19 @@ For the full dataset, set `DATABASE_URL` (Neon, with PostGIS and the data
 loaded). `ANTHROPIC_API_KEY` is only needed for free-text questions; the
 presets ship with their plans and never call a model.
 
+Accounts are off until a database is configured, and need nothing else running:
+
+```bash
+npm run db:migrate   # applies drizzle/*.sql to DATABASE_URL
+```
+
+with `BETTER_AUTH_SECRET` set and a GitHub OAuth app supplying
+`GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`. Any Postgres will do — the
+sessions and saved rows never touch PostGIS. The schema lives in
+`src/db/schema.ts` and the migrations it generates are committed, so the SQL
+that will run in production is reviewable in the diff rather than produced by a
+tool at deploy time.
+
 To rebuild the dataset from scratch: `pipeline/extract.py` → `spatial.py` →
 `analyze.py` → `load_postgis.py`, then `county_outline.py`.
 
@@ -242,10 +343,12 @@ show where flooding and poor access coincide, not that either causes the other.
 **Application** — TypeScript (strict, with `noUncheckedIndexedAccess`) ·
 Next.js 16 App Router · React 19 · Tailwind CSS v4 · MapLibre GL JS
 
-**Server** — Next.js Route Handlers on the Node runtime · Zod · Neon Postgres
-with PostGIS · Anthropic API
+**Server** — Server Components and Server Actions · Next.js Route Handlers on
+the Node runtime · Zod · Drizzle ORM with committed SQL migrations · Better
+Auth (GitHub OAuth, database sessions) · Neon Postgres with PostGIS ·
+Anthropic API
 
-**Testing and delivery** — Vitest · Playwright · GitHub Actions gating
-deployment to Vercel
+**Testing and delivery** — Vitest (unit and integration against a Postgres
+service container) · Playwright · GitHub Actions gating deployment to Vercel
 
 **Data pipeline** — Python · GeoPandas · Shapely · PyProj
