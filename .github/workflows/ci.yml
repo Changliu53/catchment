@@ -107,7 +107,7 @@ jobs:
         with:
           script: |
             const marker = '<!-- preview-url -->';
-            const body = `${marker}\nPreview for \`${context.sha.slice(0, 7)}\`: ${{ steps.deploy.outputs.url }}`;
+            const body = `${marker}\nPreview for \`${context.payload.pull_request.head.sha.slice(0, 7)}\`: ${{ steps.deploy.outputs.url }}`;
             const { owner, repo } = context.repo;
             const issue_number = context.issue.number;
             const comments = await github.paginate(github.rest.issues.listComments, {
