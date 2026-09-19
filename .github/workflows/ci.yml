@@ -111,11 +111,20 @@ jobs:
   # ---------------------------------------------------------------- preview --
   preview:
     needs: test
-    # Secrets are not available to a pull request from a fork, so the job would
-    # fail on a contribution rather than on a fault.
+    # Two ways the secrets go missing, and the job has to sit out both or it
+    # reports a fault that is not one.
+    #
+    # A pull request from a fork gets no repository secrets, which is the
+    # obvious one. A pull request opened by Dependabot also gets none — its
+    # branch lives in this repository, so the fork check passes, but GitHub
+    # runs it against a separate Dependabot secret store on purpose, and
+    # `secrets.VERCEL_TOKEN` comes through empty. That turned every dependency
+    # update red at the deploy step while its tests were green, which is the
+    # precise way to teach someone to stop reading CI.
     if: >-
       github.event_name == 'pull_request' &&
-      github.event.pull_request.head.repo.full_name == github.repository
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
