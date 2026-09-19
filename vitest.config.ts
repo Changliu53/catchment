@@ -10,7 +10,14 @@ import { defineConfig } from 'vitest/config';
  */
 export default defineConfig({
   resolve: {
-    alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+      // `server-only` throws unless the bundler resolves its react-server
+      // export condition, which Vitest does not. Aliasing it to nothing lets
+      // server modules be unit-tested; the guard it provides is a build-time
+      // one in Next, and is unaffected.
+      'server-only': fileURLToPath(new URL('./src/lib/__tests__/server-only.stub.ts', import.meta.url)),
+    },
   },
   test: {
     include: ['src/**/*.test.ts'],

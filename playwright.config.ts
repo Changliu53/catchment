@@ -52,7 +52,12 @@ export default defineConfig({
     // backed by a sampled copy of the real table instead — which also means
     // anyone who clones the repo can run both the app and its tests without
     // Neon credentials.
-    env: { CATCHMENT_DATA: 'fixture' },
+    // DATABASE_URL is blanked rather than merely left unset: a developer with
+    // one exported in their shell would otherwise be testing a different
+    // application from the one CI tests. This is the "clone it and run it"
+    // configuration — the whole analysis, no accounts — and `accounts.spec.ts`
+    // asserts it degrades rather than breaks.
+    env: { CATCHMENT_DATA: 'fixture', DATABASE_URL: '' },
     url: `http://127.0.0.1:${PORT}`,
     reuseExistingServer: !process.env.CI,
     timeout: 240_000,
