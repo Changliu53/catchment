@@ -33,40 +33,16 @@ import maplibregl from 'maplibre-gl';
 import type { Map as MapLibreMap, MapLayerMouseEvent } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
-import { colorExpression, FILL_OPACITY, RAMP, SPLIT_OUTLINE } from '@/lib/ramp';
-import COUNTY from '@/lib/harris-county.json';
-
-/**
- * Everything outside Harris County, as one polygon with the county punched out
- * of it. Drawn in translucent white, it turns the basemap's surroundings into
- * context and makes the study area unmistakable.
- *
- * This matters more than it sounds. The analysis covers exactly one county,
- * but the basemap runs to Galveston and beyond, so an empty stretch of map was
- * ambiguous: no block group matched here, or this was never in the dataset?
- * The mask answers that without a word of explanation.
- *
- * The outer ring stops short of the poles because Web Mercator does not reach
- * them; ±85° is the projection's own limit.
- */
-const WORLD_RING: [number, number][] = [
-  [-180, -85],
-  [180, -85],
-  [180, 85],
-  [-180, 85],
-  [-180, -85],
-];
-
-const countyRings = (COUNTY.geometry as { type: string; coordinates: number[][][] }).coordinates;
-
-const OUTSIDE_COUNTY = {
-  type: 'Feature' as const,
-  properties: {},
-  geometry: {
-    type: 'Polygon' as const,
-    coordinates: [WORLD_RING, ...countyRings],
-  },
-};
+import { boundsOf, centroidOf } from '@/lib/geo';
+import {
+  INTERACTIVE,
+  LAYERS,
+  lineOpacity,
+  RESULT_SOURCES,
+  SOURCES,
+  splitFilter,
+} from '@/lib/map-layers';
+import { colorExpression } from '@/lib/ramp';
 
 /**
  * Basemap, with a fallback.
@@ -126,31 +102,6 @@ interface Props {
    * decoration.
    */
   onSelect: (props: Record<string, number | string | boolean | null> | null) => void;
-}
-
-/**
- * Mean of a polygon's outer-ring vertices. Not a true centroid, but within a
- * few hundred metres of one for a census block group — invisible at the zooms
- * the dot layer exists for.
- */
-function centroidOf(geometry: unknown): [number, number] | null {
-  const g = geometry as { type?: string; coordinates?: unknown };
-  const polys =
-    (g?.type === 'MultiPolygon'
-      ? (g.coordinates as number[][][][])
-      : [g?.coordinates as number[][][]]) ?? [];
-
-  let x = 0;
-  let y = 0;
-  let n = 0;
-  for (const poly of polys) {
-    for (const c of poly?.[0] ?? []) {
-      x += c[0]!;
-      y += c[1]!;
-      n++;
-    }
-  }
-  return n === 0 ? null : [x / n, y / n];
 }
 
 export default function MapView({ features, colorBy, breaks, split, onHover, onSelect }: Props) {
@@ -225,46 +176,27 @@ export default function MapView({ features, colorBy, breaks, split, onHover, onS
       // The grouping, as an outline over the graded fill.
       m.setLayoutProperty('results-split', 'visibility', sp ? 'visible' : 'none');
       if (sp) {
-        m.setFilter('results-split', ['>=', ['to-number', ['get', sp.field]], sp.threshold]);
+        m.setFilter('results-split', splitFilter(sp.field, sp.threshold) as never);
       }
 
       // A comparison covers the whole county, so every polygon has a neighbour
       // and the dots mark nothing. The outline softens for the same reason:
       // 2,830 outlined shapes read as a mesh laid over the map.
       m.setLayoutProperty('results-dots', 'visibility', sp ? 'none' : 'visible');
-      m.setPaintProperty('results-line', 'line-opacity', [
-        'case',
-        ['boolean', ['feature-state', 'hover'], false],
-        1,
-        sp ? 0.25 : 0.7,
-      ] as never);
+      m.setPaintProperty('results-line', 'line-opacity', lineOpacity(Boolean(sp)) as never);
 
-      if (fit && fs.length > 0) {
-        const b = new maplibregl.LngLatBounds();
-        for (const f of fs) {
-          const g = f.geometry as { type: string; coordinates: number[][][][] | number[][][] };
-          const polys =
-            g.type === 'MultiPolygon'
-              ? (g.coordinates as number[][][][])
-              : [g.coordinates as number[][][]];
-          for (const poly of polys)
-            for (const ring of poly)
-              for (const c of ring) {
-                b.extend([c[0]!, c[1]!]);
-              }
-        }
+      const box = fit ? boundsOf(fs) : null;
+      if (box) {
         // A camera flight is motion the reader did not ask for. Respect the
         // system setting and jump instead — the destination is identical.
         const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-        if (!b.isEmpty()) {
-          m.fitBounds(b, { padding: 56, maxZoom: 12, duration: still ? 0 : 600 });
-        }
+        m.fitBounds(box, { padding: 56, maxZoom: 12, duration: still ? 0 : 600 });
       }
     };
 
     const setHovered = (id: string | null) => {
       if (hovered.current === id) return;
-      for (const source of ['results', 'results-points'] as const) {
+      for (const source of RESULT_SOURCES) {
         if (hovered.current !== null) {
           m.setFeatureState({ source, id: hovered.current }, { hover: false });
         }
@@ -276,95 +208,13 @@ export default function MapView({ features, colorBy, breaks, split, onHover, onS
     const build = () => {
       if (m.getSource('results')) return;
 
-      // The county frame goes down first so every results layer sits on top of
-      // it. Its data never changes, so unlike the results sources it is filled
-      // here and never touched again.
-      m.addSource('county', { type: 'geojson', data: OUTSIDE_COUNTY });
-      m.addSource('county-line', { type: 'geojson', data: COUNTY as never });
+      // Declared in `lib/map-layers`, in draw order. The county frame is first
+      // in that array and therefore underneath, which is the whole reason the
+      // order is asserted in a test rather than kept by hand here.
+      for (const [id, spec] of Object.entries(SOURCES)) m.addSource(id, spec);
+      for (const layer of LAYERS) m.addLayer(layer);
 
-      m.addLayer({
-        id: 'county-mask',
-        type: 'fill',
-        source: 'county',
-        paint: { 'fill-color': '#f8fafc', 'fill-opacity': 0.6 },
-      });
-      m.addLayer({
-        id: 'county-outline',
-        type: 'line',
-        source: 'county-line',
-        paint: { 'line-color': '#64748b', 'line-width': 1.25, 'line-opacity': 0.9 },
-      });
-
-      // promoteId lifts geoid into the feature id, which feature-state keys on.
-      m.addSource('results', {
-        type: 'geojson',
-        promoteId: 'geoid',
-        data: { type: 'FeatureCollection', features: [] },
-      });
-      m.addSource('results-points', {
-        type: 'geojson',
-        promoteId: 'geoid',
-        data: { type: 'FeatureCollection', features: [] },
-      });
-
-      m.addLayer({
-        id: 'results-fill',
-        type: 'fill',
-        source: 'results',
-        paint: { 'fill-color': RAMP[1]!, 'fill-opacity': FILL_OPACITY },
-      });
-      m.addLayer({
-        id: 'results-line',
-        type: 'line',
-        source: 'results',
-        paint: {
-          // White for the hovered edge: against six shades of blue, lighter
-          // reads as "picked out" at every step, where darker vanishes into
-          // the dark end of the ramp.
-          'line-color': [
-            'case',
-            ['boolean', ['feature-state', 'hover'], false],
-            '#ffffff',
-            '#1e293b',
-          ],
-          'line-width': ['case', ['boolean', ['feature-state', 'hover'], false], 2.5, 0.9],
-          'line-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 1, 0.7],
-        },
-      });
-
-      // The comparison's grouping, drawn over the graded fill. Hidden unless a
-      // comparison is on screen; `paint` sets its filter and visibility.
-      m.addLayer({
-        id: 'results-split',
-        type: 'line',
-        source: 'results',
-        layout: { visibility: 'none' },
-        filter: ['==', ['get', 'geoid'], ''],
-        paint: {
-          'line-color': SPLIT_OUTLINE,
-          'line-width': ['interpolate', ['linear'], ['zoom'], 8, 1.1, 12, 2],
-        },
-      });
-
-      // Block groups are small. A result scattered across the county forces a
-      // zoom where each polygon is a few pixels wide — drawn, but on a busy
-      // basemap indistinguishable from nothing. Dots carry the same colour
-      // there and hand back to the polygons on the way in.
-      m.addLayer({
-        id: 'results-dots',
-        type: 'circle',
-        source: 'results-points',
-        paint: {
-          'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 5, 11, 7, 13, 9],
-          'circle-color': RAMP[1]!,
-          'circle-stroke-color': '#ffffff',
-          'circle-stroke-width': ['case', ['boolean', ['feature-state', 'hover'], false], 3, 1.5],
-          'circle-opacity': ['interpolate', ['linear'], ['zoom'], 11.5, 0.95, 13, 0],
-          'circle-stroke-opacity': ['interpolate', ['linear'], ['zoom'], 11.5, 1, 13, 0],
-        },
-      });
-
-      for (const layer of ['results-fill', 'results-dots'] as const) {
+      for (const layer of INTERACTIVE) {
         m.on('mousemove', layer, (e: MapLayerMouseEvent) => {
           const f = e.features?.[0];
           if (!f) return;
@@ -393,7 +243,7 @@ export default function MapView({ features, colorBy, breaks, split, onHover, onS
       // ordinary way out of a detail panel, and on a phone the panel covers
       // enough of the map to need one.
       m.on('click', (e) => {
-        const layers = ['results-fill', 'results-dots'].filter((l) => m.getLayer(l));
+        const layers = INTERACTIVE.filter((l) => m.getLayer(l));
         if (layers.length === 0) return;
         if (m.queryRenderedFeatures(e.point, { layers }).length === 0) {
           setHovered(null);
