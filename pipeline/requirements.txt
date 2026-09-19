@@ -24,4 +24,4 @@ psycopg[binary]~=3.2
 # Lifting this is a decision about which Python the pipeline requires, not a
 # dependency chore. `.github/dependabot.yml` is told to stop offering it until
 # that decision is made.
-pyproj~=3.7.0
+pyproj~=3.7.2
