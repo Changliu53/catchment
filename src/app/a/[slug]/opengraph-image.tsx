@@ -16,6 +16,7 @@
 import { ImageResponse } from 'next/og';
 
 import { countyPath } from '@/lib/county-path';
+import { accountsEnabled } from '@/lib/auth';
 import { PRESETS } from '@/lib/presets';
 import { getBySlug } from '@/lib/saved';
 
@@ -29,6 +30,10 @@ function clip(text: string, limit: number): string {
 }
 
 async function load(slug: string): Promise<{ title: string; question: string | null } | null> {
+  // Same guard as the page: no accounts here means no share link could exist,
+  // and the saved-analysis tables may never have been migrated.
+  if (!accountsEnabled()) return null;
+
   try {
     const row = await getBySlug(slug);
     if (!row) return null;

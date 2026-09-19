@@ -1,38 +1,20 @@
 /**
- * The parts of `lib/saved` that need no database — including, above all, what
- * happens when there isn't one.
+ * The parts of `lib/saved` that need no database.
  *
  * The authorization claims are tested against real Postgres next door
  * (`saved.integration.test.ts`), because a WHERE clause can only be checked by
- * something that can refuse a query. What is checked here is the degraded
- * path, which is easy to get wrong precisely because it is never exercised in
- * development: `/a/<slug>` is the one route a stranger can reach without an
- * account, so it is also the route that gets opened on a deployment that has
- * no accounts at all.
+ * something that can refuse a query. Everything here is pure.
+ *
+ * Note what is deliberately *not* here: a "what happens without a database"
+ * case. This module assumes a migrated database and says nothing about whether
+ * the deployment has one — that question belongs to the routes, and is
+ * answered by `missingAuthConfig` (see `auth.test.ts`) and asserted end to end
+ * in `e2e/accounts.spec.ts`.
  */
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-import { getBySlug, paramsFor, pathFor } from '@/lib/saved';
-
-const original = process.env.DATABASE_URL;
-
-afterEach(() => {
-  if (original === undefined) delete process.env.DATABASE_URL;
-  else process.env.DATABASE_URL = original;
-});
-
-describe('without a database', () => {
-  it('reports a share link as missing rather than throwing', async () => {
-    delete process.env.DATABASE_URL;
-
-    // The regression: this used to reach the client, which throws on a
-    // missing connection string, turning a link someone pasted into a 500.
-    // Nothing was ever saved on such a deployment, so "not found" is not a
-    // softened error — it is the true answer.
-    await expect(getBySlug('k7m2p9qr4t')).resolves.toBeNull();
-  });
-});
+import { paramsFor, pathFor } from '@/lib/saved';
 
 describe('turning a saved row back into a question', () => {
   it('prefers the preset when there is one', () => {

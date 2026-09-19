@@ -23,11 +23,21 @@ import { Suspense, cache } from 'react';
 
 import Explorer from '@/components/Explorer';
 import Skeleton from '@/components/Skeleton';
+import { accountsEnabled } from '@/lib/auth';
 import { getBySlug, ownedBy } from '@/lib/saved';
 import { viewer } from '@/lib/session';
 
-/** One lookup per request, shared by the metadata and the page. */
-const load = cache(async (slug: string) => getBySlug(slug));
+/**
+ * One lookup per request, shared by the metadata and the page.
+ *
+ * The guard is here rather than in `lib/saved`, because it is a fact about the
+ * deployment rather than about the data: where accounts are not configured,
+ * nothing could ever have created a share link, so "not found" is true. It
+ * also keeps this route from querying a schema that was never migrated —
+ * DATABASE_URL alone does not mean the saved-analysis tables exist, since this
+ * app uses that same database for the block-group data.
+ */
+const load = cache(async (slug: string) => (accountsEnabled() ? getBySlug(slug) : null));
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const row = await load((await params).slug);

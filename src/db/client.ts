@@ -26,19 +26,6 @@ import { Pool } from 'pg';
 
 import * as schema from './schema';
 
-/**
- * Whether this deployment has a database at all.
- *
- * One predicate, used by everything that has an anonymous fallback: accounts
- * are absent rather than broken, and a share link cannot exist where nothing
- * could have saved one. The alternative — each caller reading
- * `process.env.DATABASE_URL` for itself — is how one of them ends up throwing
- * a 500 on a path the others handle.
- */
-export function hasDatabase(): boolean {
-  return Boolean(process.env.DATABASE_URL);
-}
-
 function url(): string {
   const value = process.env.DATABASE_URL;
   if (!value) {
