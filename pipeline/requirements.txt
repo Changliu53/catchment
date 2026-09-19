@@ -1,10 +1,27 @@
 # The data pipeline only. The application needs none of this — see package.json.
 #
-# Pinned to minor versions: GeoPandas and Shapely have both changed geometry
-# semantics across releases, and a pipeline whose output shifts because a
-# dependency drifted is worse than one that refuses to install.
+# Python 3.11 or newer. That floor is not a line in a README nobody runs: it is
+# what pandas 3 and pyproj 3.7 require, and `smoke.py` asserts it.
+#
+# Pinned to the major version, and that is worth stating precisely because the
+# comment here used to claim otherwise. `~=1.1` means ">=1.1, <2.0" — two
+# components pin the major, not the minor. `~=1.1.0` is what pins a minor.
+# Nothing below is tightened to a minor except where there is a reason, because
+# a pin nobody can justify is a pin nobody will lift.
 geopandas~=1.1
 shapely~=2.1
-pyproj~=3.7
-pandas~=2.2
+pandas~=3.0
 psycopg[binary]~=3.2
+
+# The one exception, and the reason is not that 3.8 is broken.
+#
+# pyproj 3.8 raises its floor to Python 3.12. Semver calls that a minor
+# release; for anyone on 3.11 it is "pip refuses to install this project at
+# all". Three components here, so it actually holds — `~=3.7` would have let
+# 3.8 straight through, which is how this was nearly merged on a green check
+# that had never run a line of Python.
+#
+# Lifting this is a decision about which Python the pipeline requires, not a
+# dependency chore. `.github/dependabot.yml` is told to stop offering it until
+# that decision is made.
+pyproj~=3.7.0
