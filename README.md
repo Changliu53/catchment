@@ -155,6 +155,18 @@ possible place to let an exception escape. A second Playwright server runs that
 exact half-configured environment (`e2e/degraded.spec.ts`), and reverting
 either fix turns it red.
 
+**Sign-in reports its own failure, which it did not at first.** Signing in with
+a social provider is not one hop: the server records the OAuth state in a row
+*before* it can hand back a URL to redirect to. With the tables not yet
+migrated that write failed, the endpoint answered 500 with an empty body, and
+the button sat on "Opening GitHub…" indefinitely — indistinguishable from a
+slow network, so a reader waits and then presses it again. The first attempt at
+a fix was itself wrong: it keyed on `error.message`, which was `undefined`
+here, so it concluded nothing had gone wrong. The presence of the error is what
+is checked now, and a third Playwright server — configured for accounts, with
+the database refusing connections — clicks the button and asserts it says so
+and becomes usable again.
+
 **Authorization is a condition in the query, not a check after it.** Every
 function in `lib/saved.ts` takes the owner's id and puts it in the `WHERE`
 clause; `UPDATE … WHERE slug = $1 AND user_id = $2 RETURNING slug` tells you
@@ -285,10 +297,12 @@ something the environment is trusted to have done.
   the block groups the page says matched, that the layout holds from 390px to
   1680px, that a dead share link answers 404 and a signed-out visit to `/saved`
   answers 307, and — with touch emulation — that tapping a block group opens
-  its numbers. A second server runs the same build in a half-configured
-  environment — a connection string and nothing else, the state that once took
-  production down — and asserts that every public route still answers and that
-  none of them answers 500.
+  its numbers. Two more servers run the same build in environments that broke
+  it: one half-configured — a connection string and nothing else, the state
+  that once took production down — asserting every public route still answers
+  and none answers 500; one fully configured with the database refusing
+  connections, asserting that pressing sign-in reports the failure and releases
+  the button instead of sitting on "Opening GitHub…" forever.
 - **A negative control** — one spec removes the Web Worker and asserts the map
   renders *nothing*. A regression test that has never failed is a guess about
   what it measures; this one reproduces the original fault and watches the
