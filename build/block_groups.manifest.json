@@ -1,0 +1,21 @@
+{
+  "file": "block_groups.csv.gz",
+  "rows": 2830,
+  "bytes": 3675132,
+  "sha256": "c3c60c62c86887237d63f90895074e443b03a9ae6669ac39df70d7f3f8b79bd9",
+  "columns": [
+    "geoid",
+    "pop",
+    "median_income",
+    "income_topcoded",
+    "area_m2",
+    "pop_density",
+    "flood_pct",
+    "flood_pct_500",
+    "dist_grocery_m",
+    "dist_park_m",
+    "geom",
+    "geom_simple"
+  ],
+  "built": "2026-09-18T01:47:17Z"
+}

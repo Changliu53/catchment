@@ -21,7 +21,12 @@ import os
 import sys
 from pathlib import Path
 
-CSV = Path(__file__).resolve().parent.parent / "build" / "block_groups.csv.gz"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import paths  # noqa: E402  (same directory; keeps one definition of where things live)
+
+CSV = paths.TABLE
+MANIFEST = paths.MANIFEST
 
 COLUMNS = (
     "geoid, pop, median_income, income_topcoded, area_m2, pop_density, "
@@ -120,6 +125,15 @@ def main() -> int:
     if not CSV.exists():
         print(f"missing {CSV} — run pipeline/analyze.py first", file=sys.stderr)
         return 1
+
+    # Before touching the database. A truncated or half-written file is
+    # otherwise discovered as a COPY that fails partway through — or, worse,
+    # one that succeeds with fewer rows than the county has.
+    m = paths.verify_manifest(CSV, MANIFEST)
+    if m["checked"]:
+        print(f"source  : {CSV.name} ({m['rows']} rows, built {m['built']})")
+    else:
+        print(f"source  : {CSV.name} (unverified — {m['reason']})")
 
     with psycopg.connect(dsn) as conn, conn.cursor() as cur:
         cur.execute(CREATE_STAGING)
