@@ -1,8 +1,13 @@
-# Vercel builds on every push, but a build is not a test: `next build` runs
-# TypeScript and stops there. Everything that actually guards behaviour — the
-# executor's unit tests, the MapLibre packaging assertions, the end-to-end map
-# regression — runs here, so a commit that breaks the map is red before anyone
-# opens the deployment.
+# Tests and deploys, in that order.
+#
+# Vercel's own Git integration is deliberately not connected. It ties "which
+# Vercel account is this?" to the GitHub user who pushed, which breaks the
+# moment that GitHub user points at a different Vercel account — and it
+# deployed whether or not the tests passed. Here the deploy is an ordinary job
+# authenticated by a token, so it depends on nothing but `needs: test`.
+#
+# That ordering is the point: a commit that breaks the map is red before it is
+# ever served.
 name: CI
 
 on:
@@ -15,6 +20,11 @@ on:
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
+
+# Pinned. An unattended `@latest` means a CLI release can turn a green pipeline
+# red on a commit that changed nothing.
+env:
+  VERCEL_CLI: vercel@59.23.2
 
 jobs:
   test:
@@ -56,3 +66,75 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  # ---------------------------------------------------------------- preview --
+  preview:
+    needs: test
+    # Secrets are not available to a pull request from a fork, so the job would
+    # fail on a contribution rather than on a fault.
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # No `vercel build` here: Vercel builds remotely, which is what gives the
+      # deployment the project's own environment variables. DATABASE_URL and
+      # ANTHROPIC_API_KEY stay in the Vercel project and are never copied into
+      # GitHub.
+      - name: Deploy preview
+        id: deploy
+        run: |
+          url=$(npx --yes "$VERCEL_CLI" deploy --yes --token="$VERCEL_TOKEN")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Preview: $url" >> "$GITHUB_STEP_SUMMARY"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      # One comment, edited in place. A new comment per push buries the
+      # conversation under a list of dead URLs.
+      - name: Comment the preview URL
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = '<!-- preview-url -->';
+            const body = `${marker}\nPreview for \`${context.payload.pull_request.head.sha.slice(0, 7)}\`: ${{ steps.deploy.outputs.url }}`;
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number,
+            });
+            const mine = comments.find((c) => c.body?.startsWith(marker));
+            if (mine) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: mine.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
+  # ------------------------------------------------------------- production --
+  production:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Deploy production
+        run: |
+          url=$(npx --yes "$VERCEL_CLI" deploy --prod --yes --token="$VERCEL_TOKEN")
+          echo "Production: $url" >> "$GITHUB_STEP_SUMMARY"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}

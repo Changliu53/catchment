@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { Fragment, useCallback, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import Legend from '@/components/Legend';
 import { formatValue, labelFor } from '@/lib/format';
@@ -65,6 +65,10 @@ export default function Home() {
   const [result, setResult] = useState<Result | null>(null);
   const [refusal, setRefusal] = useState<Refusal | null>(null);
   const [hover, setHover] = useState<Record<string, number | string | boolean | null> | null>(null);
+  const [selected, setSelected] = useState<Record<string, number | string | boolean | null> | null>(
+    null,
+  );
+  const controls = useRef<HTMLElement>(null);
 
   const run = useCallback(async (body: { presetId?: string; question?: string }) => {
     setLoading(true);
@@ -104,20 +108,68 @@ export default function Home() {
   }, []);
 
   const onHover = useCallback((p: Record<string, number | string | boolean | null> | null) => setHover(p), []);
+  const onSelect = useCallback(
+    (p: Record<string, number | string | boolean | null> | null) => setSelected(p),
+    [],
+  );
+
+  // What the detail panel shows. A pick wins over a passing hover: on touch
+  // there is no hover at all, and on a pointer device a reader who clicked a
+  // block group should not lose it by moving the mouse.
+  const detail = selected ?? hover;
 
   // Classification happens once, in one place. If the map computed its own
   // breaks the legend would be describing a different map than the one drawn.
   const colorBy = result?.plan.color_by ?? null;
-  const colorValues = useMemo(
-    () => (colorBy ? (result?.features ?? []).map((f) => Number(f.properties[colorBy])) : []),
-    [result, colorBy],
-  );
+
+  // Nulls are counted, never coerced. `Number(null)` is 0, so mapping the
+  // values straight through put 273 block groups with suppressed income at the
+  // bottom of the distribution — which both painted them as the poorest areas
+  // in the county and dragged every quantile break downwards.
+  const { colorValues, missing } = useMemo(() => {
+    if (!colorBy) return { colorValues: [] as number[], missing: 0 };
+    const values: number[] = [];
+    let absent = 0;
+    for (const f of result?.features ?? []) {
+      const raw = f.properties[colorBy];
+      const n = raw === null || raw === '' ? NaN : Number(raw);
+      if (Number.isFinite(n)) values.push(n);
+      else absent++;
+    }
+    return { colorValues: values, missing: absent };
+  }, [result, colorBy]);
+
   const breaks = useMemo(() => quantileBreaks(colorValues), [colorValues]);
 
+  // Bring a new answer into view. On a phone the controls are a 45%-tall
+  // scroller, so a result that lands while the reader is halfway down the
+  // preset list is invisible; this is also why the panel sits above the
+  // presets rather than below them.
+  useEffect(() => {
+    if (result || refusal) controls.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    // The picked block group belonged to the previous answer.
+    setSelected(null);
+    setHover(null);
+  }, [result, refusal]);
+
   return (
-    <main className="flex h-screen flex-col lg:flex-row">
+    // h-dvh, not h-screen: on mobile Safari 100vh is the height the page
+    // *would* have with the URL bar hidden, so h-screen puts the bottom of the
+    // map under the browser chrome.
+    <main className="flex h-dvh flex-col lg:flex-row">
       {/* ---------------- controls ---------------- */}
-      <aside className="flex w-full shrink-0 flex-col gap-5 overflow-y-auto border-slate-200 bg-white p-5 lg:w-[26rem] lg:border-r">
+      {/*
+        The explicit height is load-bearing on small screens. Stacked, this
+        aside is ~1000px of content and `shrink-0` means it will not give any
+        of that back, so the map — the entire point of the page — was squeezed
+        to zero pixels on a phone and 237 on a tablet. Capping the controls at
+        45% of the viewport and letting them scroll inside that leaves the map
+        a real 55%.
+      */}
+      <aside
+        ref={controls}
+        className="flex h-[45dvh] w-full shrink-0 flex-col gap-5 overflow-y-auto border-b border-slate-200 bg-white p-5 lg:h-full lg:w-[26rem] lg:border-b-0 lg:border-r"
+      >
         <header>
           <h1 className="text-lg font-semibold tracking-tight text-slate-900">Catchment</h1>
           <p className="mt-1 text-sm leading-relaxed text-slate-600">
@@ -150,25 +202,6 @@ export default function Home() {
           </button>
         </form>
 
-        <section>
-          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-            Try one — these are free
-          </h2>
-          <ul className="flex flex-col gap-1.5">
-            {PRESETS.map((p) => (
-              <li key={p.id}>
-                <button
-                  onClick={() => !loading && run({ presetId: p.id })}
-                  disabled={loading}
-                  className="w-full rounded-md border border-slate-200 px-3 py-2 text-left text-sm leading-snug text-slate-700 transition hover:border-blue-400 hover:bg-blue-50 disabled:opacity-50"
-                >
-                  {p.question}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-
         {refusal && (
           <section
             role="status"
@@ -190,6 +223,32 @@ export default function Home() {
 
         {result && <PlanPanel result={result} />}
 
+        {/*
+          Below the answer, deliberately. These are a menu, and once someone
+          has asked something the answer is what they came back to the panel
+          for; eight buttons between the question box and the result meant the
+          numbers landed off-screen on every laptop.
+        */}
+        <section>
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+            {result || refusal ? 'Ask another — these are free' : 'Try one — these are free'}
+          </h2>
+          <ul className="flex flex-col gap-1.5">
+            {PRESETS.map((p) => (
+              <li key={p.id}>
+                <button
+                  onClick={() => !loading && run({ presetId: p.id })}
+                  disabled={loading}
+                  aria-current={result?.plan.title === p.plan.title ? 'true' : undefined}
+                  className="w-full rounded-md border border-slate-200 px-3 py-2 text-left text-sm leading-snug text-slate-700 transition hover:border-blue-400 hover:bg-blue-50 disabled:opacity-50 aria-[current]:border-blue-400 aria-[current]:bg-blue-50"
+                >
+                  {p.question}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+
         <footer className="mt-auto pt-4 text-xs leading-relaxed text-slate-500">
           <p>
             Census ACS 5-year and TIGER/Line boundaries, FEMA National Flood Hazard Layer, and
@@ -206,10 +265,11 @@ export default function Home() {
           colorBy={colorBy}
           breaks={breaks}
           onHover={onHover}
+          onSelect={onSelect}
         />
 
         {colorBy && result && result.features.length > 0 && (
-          <Legend field={colorBy} values={colorValues} breaks={breaks} />
+          <Legend field={colorBy} values={colorValues} breaks={breaks} missing={missing} />
         )}
 
         {!result && !loading && (
@@ -221,11 +281,33 @@ export default function Home() {
           </div>
         )}
 
-        {hover && (
-          <div className="pointer-events-none absolute bottom-4 left-4 max-w-[17rem] rounded-lg bg-white/95 p-3 text-xs shadow-lg ring-1 ring-slate-200">
-            <p className="font-mono text-[11px] text-slate-500">
-              Block group {String(hover.geoid)}
-            </p>
+        {detail && (
+          /* pointer-events only when it is a pick: a panel that follows the
+             cursor must not swallow the hover it is describing, but a panel a
+             touch user opened has to be dismissible. */
+          <div
+            // bottom-9 on small screens clears MapLibre's attribution bar,
+            // which spans the full width there and was covering the last row's
+            // value. The height cap keeps the panel inside the map on a short
+            // phone map rather than letting it grow past the top.
+            className={`absolute bottom-9 left-3 right-3 max-h-[70%] overflow-y-auto rounded-lg bg-white/95 p-3 text-xs shadow-lg ring-1 ring-slate-200 sm:right-auto sm:max-w-[17rem] lg:bottom-4 ${
+              selected ? 'pointer-events-auto' : 'pointer-events-none'
+            }`}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <p className="font-mono text-[11px] text-slate-500">
+                Block group {String(detail.geoid)}
+              </p>
+              {selected && (
+                <button
+                  onClick={() => setSelected(null)}
+                  aria-label="Close block group details"
+                  className="-mr-1 -mt-1 shrink-0 rounded px-1.5 py-0.5 text-sm leading-none text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                >
+                  ×
+                </button>
+              )}
+            </div>
             <dl className="mt-1.5 grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 text-slate-700">
               {(
                 [
@@ -245,13 +327,13 @@ export default function Home() {
                   <dd
                     className={`text-right tabular-nums ${f === colorBy ? 'font-medium text-slate-900' : ''}`}
                   >
-                    {formatValue(f, hover[f] === null ? null : Number(hover[f]))}
-                    {f === 'median_income' && hover.income_topcoded ? '+' : ''}
+                    {formatValue(f, detail[f] === null ? null : Number(detail[f]))}
+                    {f === 'median_income' && detail.income_topcoded ? '+' : ''}
                   </dd>
                 </Fragment>
               ))}
             </dl>
-            {hover.income_topcoded ? (
+            {detail.income_topcoded ? (
               <p className="mt-1.5 text-[10px] leading-snug text-slate-500">
                 + income is top-coded by the Census at $250,001.
               </p>
