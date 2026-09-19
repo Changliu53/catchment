@@ -29,6 +29,25 @@ import { stubBasemap } from './helpers';
 
 const db = new Pool({ connectionString: E2E_DATABASE_URL ?? undefined });
 
+/**
+ * How long to wait for a share route to be on screen.
+ *
+ * `/a/[slug]` renders the whole analysis before it sends a byte — there is no
+ * Suspense boundary above it, deliberately, so that the page works with
+ * JavaScript switched off (docs/decisions/0004). The cost of that choice is
+ * paid here: the URL can be current while the document is not, and the 5s
+ * default assertion timeout turns into an accidental performance budget on a
+ * blocking server render that is sharing a CI runner with a Postgres
+ * container and four Next servers.
+ *
+ * It went flaky exactly once, on a dependency-update run, and was green on the
+ * retry. Given explicitly rather than inherited, because what this suite is
+ * asserting is that the share page shows the saved analysis — not how many
+ * seconds that takes. A real regression still fails; it just fails on being
+ * wrong rather than on being slow.
+ */
+const SHARE_ROUTE_TIMEOUT = 20_000;
+
 test.beforeAll(async () => {
   // Start from nothing: the cascade on `user` takes any saved rows with it,
   // which also means a previous run cannot leave a row that makes this one
@@ -94,7 +113,7 @@ test('save, share, rename, delete', async ({ page }) => {
   const shareUrl = page.url();
   const slug = shareUrl.split('/a/')[1]!;
 
-  await expect(page.getByText('Saved analysis')).toBeVisible();
+  await expect(page.getByText('Saved analysis')).toBeVisible({ timeout: SHARE_ROUTE_TIMEOUT });
   await expect(page.getByText(/of \d[\d,]* block groups/)).toBeVisible();
 
   // --- the link is public ------------------------------------------------
@@ -105,7 +124,9 @@ test('save, share, rename, delete', async ({ page }) => {
     await anonymous.goto(shareUrl);
 
     // Readable without an account — that is what makes it a share link.
-    await expect(anonymous.getByText('Grocery deserts to revisit')).toBeVisible();
+    await expect(anonymous.getByText('Grocery deserts to revisit')).toBeVisible({
+      timeout: SHARE_ROUTE_TIMEOUT,
+    });
     await expect(anonymous.getByText(/someone shared this/i)).toBeVisible();
     // And a stranger is offered no way to change it.
     await expect(anonymous.getByRole('button', { name: /rename/i })).toHaveCount(0);
@@ -190,7 +211,9 @@ test('a stranger is offered nothing, and the row survives their visit', async ({
 
     // They can read it — it is a share link — but they are offered nothing,
     // and the row is still there afterwards.
-    await expect(theirs.getByText(/someone shared this/i)).toBeVisible();
+    await expect(theirs.getByText(/someone shared this/i)).toBeVisible({
+      timeout: SHARE_ROUTE_TIMEOUT,
+    });
     await expect(theirs.getByRole('button', { name: /rename/i })).toHaveCount(0);
   } finally {
     await other.close();
