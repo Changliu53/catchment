@@ -29,6 +29,17 @@ export const FILL_OPACITY = 0.85;
 export const NO_DATA = '#cbd5e1';
 
 /**
+ * The outline that marks the group a comparison is splitting on.
+ *
+ * A comparison has two variables — the measure it compares and the field it
+ * splits on — and they need separate visual channels or one of them is simply
+ * absent. The fill grades the measure; this outlines the group. Amber rather
+ * than another blue: it has to read as a different kind of statement than the
+ * ramp underneath it, not as one more class of it.
+ */
+export const SPLIT_OUTLINE = '#b45309';
+
+/**
  * The fill colour for the shaded field, as a MapLibre expression.
  *
  * The null branch is the point. `['==', ['get', f], null]` was checked against
@@ -44,33 +55,6 @@ export const NO_DATA = '#cbd5e1';
  * — and the second fails silently, which is how a bug like this survives a
  * code review.
  */
-/**
- * The two ends of the ramp, for a comparison.
- *
- * A `compare` step has no field to shade by — its output is a pair of
- * distributions, not a value per row — so the map used to paint all 2,830
- * block groups one flat colour and say nothing at all. These two classes let
- * it say the thing the statistics table cannot: where each group actually is.
- *
- * Two ends of the sequential ramp rather than two unrelated hues, because the
- * split is ordinal. `flood_pct >= 0.5` is *more* than `< 0.5`, and a
- * categorical pair would assert the groups are unordered.
- */
-export const SPLIT_BELOW = RAMP[0];
-export const SPLIT_ABOVE = RAMP[4];
-
-/** Fill colour for a comparison: which side of the threshold each row falls. */
-export function splitExpression(field: string, threshold: number): unknown {
-  return [
-    'case',
-    ['==', ['get', field], null],
-    NO_DATA,
-    ['>=', ['to-number', ['get', field]], threshold],
-    SPLIT_ABOVE,
-    SPLIT_BELOW,
-  ];
-}
-
 export function colorExpression(colorBy: string | null, breaks: number[]): unknown {
   if (!colorBy) return RAMP[1];
 

@@ -27,7 +27,7 @@
  * produce a hydration mismatch.
  */
 
-import { classRanges, NO_DATA, SPLIT_ABOVE, SPLIT_BELOW } from '@/lib/ramp';
+import { classRanges, NO_DATA, SPLIT_OUTLINE } from '@/lib/ramp';
 import { formatValue, labelFor } from '@/lib/format';
 
 interface Props {
@@ -46,8 +46,6 @@ interface Props {
 }
 
 export default function Legend({ field, values, breaks, missing, split }: Props) {
-  if (split) return <SplitLegend {...split} />;
-
   const clean = values.filter(Number.isFinite);
 
   // Nothing to explain only when there is nothing on the map. A result with
@@ -94,6 +92,17 @@ export default function Legend({ field, values, breaks, missing, split }: Props)
             </div>
           </>
         )}
+        {split && (
+          <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-slate-600">
+            <span
+              aria-hidden
+              className="h-3 w-3 shrink-0 rounded-sm border-2"
+              style={{ borderColor: SPLIT_OUTLINE }}
+            />
+            <span>{'\u2265'} {formatValue(split.field, split.threshold)} floodplain</span>
+            <span className="tabular-nums text-slate-400">{split.above}</span>
+          </div>
+        )}
         {missing > 0 && (
           <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-slate-600">
             <span
@@ -134,6 +143,20 @@ export default function Legend({ field, values, breaks, missing, split }: Props)
           end of the distribution — they are absent from it, and the legend has
           to say so or the grey on the map is unexplained.
         */}
+        {split && (
+          <li className="mt-1 flex items-center gap-2 border-t border-slate-200 pt-1.5 text-[11px] text-slate-700">
+            <span
+              aria-hidden
+              className="h-3 w-5 shrink-0 rounded-sm border-2"
+              style={{ borderColor: SPLIT_OUTLINE }}
+            />
+            <span className="leading-tight">
+              {'\u2265'} {formatValue(split.field, split.threshold)} {labelFor(split.field).toLowerCase()}
+            </span>
+            <span className="ml-auto pl-2 tabular-nums text-slate-400">{split.above}</span>
+          </li>
+        )}
+
         {missing > 0 && (
           <li className="mt-1 flex items-center gap-2 border-t border-slate-200 pt-1.5 text-[11px] text-slate-700">
             <span
@@ -150,56 +173,6 @@ export default function Legend({ field, values, breaks, missing, split }: Props)
       <p className="mt-2 hidden max-w-[15rem] text-[10px] leading-snug text-slate-500 lg:block">
         Equal-count classes; the count of block groups is on the right.
         {missing > 0 && ' The Census suppresses estimates for small samples.'}
-      </p>
-    </figure>
-  );
-}
-
-/**
- * The key for a comparison: two groups, named, with how many block groups fell
- * in each. Without it the map is two shades of blue with no stated meaning.
- */
-function SplitLegend({
-  field,
-  threshold,
-  above,
-  below,
-}: {
-  field: string;
-  threshold: number;
-  above: number;
-  below: number;
-}) {
-  const label = labelFor(field);
-  const cut = formatValue(field, threshold);
-  const rows = [
-    { color: SPLIT_ABOVE, text: `\u2265 ${cut}`, n: above },
-    { color: SPLIT_BELOW, text: `< ${cut}`, n: below },
-  ];
-
-  return (
-    <figure
-      aria-label={label}
-      className="pointer-events-none absolute left-3 top-3 rounded-lg bg-white/95 p-2.5 shadow-lg ring-1 ring-slate-200 lg:left-4 lg:top-4 lg:p-3"
-    >
-      <figcaption className="mb-1.5 max-w-[13rem] text-[11px] font-medium leading-snug text-slate-900 lg:mb-2 lg:max-w-[15rem] lg:text-xs">
-        {label}
-      </figcaption>
-      <ul className="flex flex-col gap-1">
-        {rows.map((r) => (
-          <li key={r.text} className="flex items-center gap-2 text-[11px] text-slate-700">
-            <span
-              aria-hidden
-              className="h-3 w-5 shrink-0 rounded-sm ring-1 ring-slate-300"
-              style={{ backgroundColor: r.color }}
-            />
-            <span className="tabular-nums">{r.text}</span>
-            <span className="ml-auto pl-3 tabular-nums text-slate-400">{r.n}</span>
-          </li>
-        ))}
-      </ul>
-      <p className="mt-2 max-w-[15rem] text-[10px] leading-snug text-slate-500">
-        The two groups the statistics compare. Counts are block groups.
       </p>
     </figure>
   );

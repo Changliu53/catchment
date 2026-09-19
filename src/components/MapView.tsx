@@ -33,7 +33,7 @@ import maplibregl from 'maplibre-gl';
 import type { Map as MapLibreMap, MapLayerMouseEvent } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
-import { colorExpression, FILL_OPACITY, RAMP, splitExpression } from '@/lib/ramp';
+import { colorExpression, FILL_OPACITY, RAMP, SPLIT_OUTLINE } from '@/lib/ramp';
 import COUNTY from '@/lib/harris-county.json';
 
 /**
@@ -108,11 +108,14 @@ interface Props {
   /** Class breaks, computed by the page so the legend and the map agree. */
   breaks: number[];
   /**
-   * Set when the answer is a comparison rather than a shaded field. A compare
-   * step returns statistics, not a value per row, so there is nothing to grade
-   * — the map instead paints which side of the threshold each block group
-   * falls on, and drops the dot layer, which at 2,830 features is noise rather
-   * than an aid.
+   * Set when the answer is a comparison. The fill still grades the measure
+   * being compared — that is what the question is about — and the grouping
+   * takes a second visual channel: the block groups above the threshold are
+   * outlined. One variable per channel, so a reader can see whether the
+   * outlined ones sit at one end of the ramp.
+   *
+   * The dot layer goes off with it. Dots reveal small polygons in a sparse
+   * result; a comparison returns the whole county, where they cover the answer.
    */
   split: { field: string; threshold: number } | null;
   onHover: (props: Record<string, number | string | boolean | null> | null) => void;
@@ -209,9 +212,15 @@ export default function MapView({ features, colorBy, breaks, split, onHover, onS
         }) as never[],
       });
 
-      const color = sp ? splitExpression(sp.field, sp.threshold) : colorExpression(cb, bk);
+      const color = colorExpression(cb, bk);
       m.setPaintProperty('results-fill', 'fill-color', color as never);
       m.setPaintProperty('results-dots', 'circle-color', color as never);
+
+      // The grouping, as an outline over the graded fill.
+      m.setLayoutProperty('results-split', 'visibility', sp ? 'visible' : 'none');
+      if (sp) {
+        m.setFilter('results-split', ['>=', ['to-number', ['get', sp.field]], sp.threshold]);
+      }
 
       // A comparison covers the whole county, so every polygon has a neighbour
       // and the dots mark nothing. The outline softens for the same reason:
@@ -307,6 +316,20 @@ export default function MapView({ features, colorBy, breaks, split, onHover, onS
           'line-color': ['case', ['boolean', ['feature-state', 'hover'], false], '#ffffff', '#1e293b'],
           'line-width': ['case', ['boolean', ['feature-state', 'hover'], false], 2.5, 0.9],
           'line-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 1, 0.7],
+        },
+      });
+
+      // The comparison's grouping, drawn over the graded fill. Hidden unless a
+      // comparison is on screen; `paint` sets its filter and visibility.
+      m.addLayer({
+        id: 'results-split',
+        type: 'line',
+        source: 'results',
+        layout: { visibility: 'none' },
+        filter: ['==', ['get', 'geoid'], ''],
+        paint: {
+          'line-color': SPLIT_OUTLINE,
+          'line-width': ['interpolate', ['linear'], ['zoom'], 8, 1.1, 12, 2],
         },
       });
 
