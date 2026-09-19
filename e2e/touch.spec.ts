@@ -14,7 +14,7 @@
 
 import { expect, test, type Page } from '@playwright/test';
 
-import { QUERY_FIXTURE, STUB_STYLE } from './fixture';
+import { openPreset, PRESETS } from './helpers';
 
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 
@@ -22,52 +22,45 @@ test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true
 const MAX_LEGEND_SHARE = 0.15;
 
 async function open(page: Page) {
-  await page.route('**/tiles.openfreemap.org/**', (r) => r.fulfill({ json: STUB_STYLE }));
-  await page.route('**/tile.openstreetmap.org/**', (r) => r.abort());
-  await page.route('**/api/query', (r) => r.fulfill({ json: QUERY_FIXTURE }));
-  await page.goto('/');
-  await page.getByRole('button', { name: /no supermarket within a kilometre/i }).click();
-  await expect(page.getByText('Flood exposure and grocery access')).toBeVisible();
-
-  // Wait for the worker to produce tiles; nothing is tappable before that.
-  await expect
-    .poll(() =>
-      page.evaluate(() => {
-        const m = (window as unknown as { __catchmentMap?: import('maplibre-gl').Map })
-          .__catchmentMap;
-        return m ? m.queryRenderedFeatures(undefined, { layers: ['results-fill'] }).length : 0;
-      }),
-    )
-    .toBeGreaterThan(0);
-
-  // And wait for the camera to stop. A new result runs a 600ms fitBounds, so
-  // a point projected while the map is still flying has moved by the time the
-  // tap lands — which showed up as a test that failed about one run in three.
-  await page.evaluate(
-    () =>
-      new Promise<void>((resolve) => {
-        const m = (window as unknown as { __catchmentMap?: import('maplibre-gl').Map })
-          .__catchmentMap;
-        if (!m || !m.isMoving()) return resolve();
-        m.once('moveend', () => resolve());
-      }),
-  );
+  await openPreset(page, PRESETS.grocery);
 }
 
-/** Screen coordinates of a point inside a rendered block group. */
+/**
+ * Screen coordinates of a point that really is inside a drawn block group.
+ *
+ * Not the mean of a ring: a census block group is not convex — they wrap
+ * bayous and follow street grids — so the centre of its vertices is regularly
+ * outside it, and a tap there hits the basemap. This asks the map what is
+ * under a grid of candidate points and takes the first that is over a result.
+ */
 async function pointOnAFeature(page: Page) {
-  return page.evaluate(() => {
+  const found = await page.evaluate(() => {
     const m = (window as unknown as { __catchmentMap?: import('maplibre-gl').Map }).__catchmentMap!;
-    const f = m.queryRenderedFeatures(undefined, { layers: ['results-fill'] })[0]!;
-    const ring = (f.geometry as { coordinates: [number, number][][] }).coordinates[0]!;
-    // Mean of the ring, which is inside it for the convex fixture polygons.
-    const mid = ring.reduce((a, c) => [a[0] + c[0] / ring.length, a[1] + c[1] / ring.length], [0, 0]);
-    const p = m.project(mid as [number, number]);
+    const canvas = m.getCanvas();
     const rect = document
       .querySelector('[aria-label="Map of analysis results"]')!
       .getBoundingClientRect();
-    return { x: rect.left + p.x, y: rect.top + p.y, geoid: f.properties?.['geoid'] as string };
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+
+    for (let fy = 0.15; fy < 0.9; fy += 0.05) {
+      for (let fx = 0.1; fx < 0.95; fx += 0.05) {
+        const pt: [number, number] = [w * fx, h * fy];
+        const hit = m.queryRenderedFeatures(pt, { layers: ['results-fill'] })[0];
+        if (hit) {
+          return {
+            x: rect.left + pt[0],
+            y: rect.top + pt[1],
+            geoid: hit.properties?.['geoid'] as string,
+          };
+        }
+      }
+    }
+    return null;
   });
+
+  if (!found) throw new Error('no rendered block group was reachable by tapping');
+  return found;
 }
 
 test('tapping a block group shows its numbers', async ({ page }) => {
@@ -164,9 +157,15 @@ test('the legend stays out of the way on a phone', async ({ page }) => {
   );
 
   // Compact is not the same as absent: it still has to say what is being
-  // shaded and which direction is more.
+  // shaded and which direction is more, so the strip carries both ends of the
+  // range. The values come from the data, so they are read rather than
+  // hardcoded — a legend that renders "—" at both ends would pass a check that
+  // only looked for two numbers.
   const legend = page.getByRole('figure', { name: 'Population' });
   await expect(legend).toBeVisible();
-  await expect(legend).toContainText('960');
-  await expect(legend).toContainText('5,310');
+
+  const ends = (await legend.innerText()).match(/[\d,]+/g) ?? [];
+  const numbers = ends.map((n) => Number(n.replace(/,/g, ''))).filter((n) => n > 0);
+  expect(numbers.length, 'the compact legend showed no range').toBeGreaterThanOrEqual(2);
+  expect(Math.max(...numbers)).toBeGreaterThan(Math.min(...numbers));
 });

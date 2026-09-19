@@ -15,7 +15,7 @@
 
 import { expect, test, type Page } from '@playwright/test';
 
-import { QUERY_FIXTURE, STUB_STYLE } from './fixture';
+import { openPreset, PRESETS, stubBasemap } from './helpers';
 
 const SIZES = [
   { name: 'phone', width: 390, height: 844 },
@@ -27,12 +27,6 @@ const SIZES = [
 
 /** The map has to be worth looking at, not merely present. */
 const MIN_MAP_SHARE = 0.4;
-
-async function stub(page: Page) {
-  await page.route('**/tiles.openfreemap.org/**', (r) => r.fulfill({ json: STUB_STYLE }));
-  await page.route('**/tile.openstreetmap.org/**', (r) => r.abort());
-  await page.route('**/api/query', (r) => r.fulfill({ json: QUERY_FIXTURE }));
-}
 
 async function boxes(page: Page) {
   // MapView is a dynamic import with ssr:false, so on first paint the slot
@@ -49,8 +43,6 @@ async function boxes(page: Page) {
       mapHeight: Math.round(map.height),
       mapWidth: Math.round(map.width),
       asideHeight: Math.round(aside.height),
-      viewportHeight: window.innerHeight,
-      viewportWidth: window.innerWidth,
       // A horizontal scrollbar on a phone is the classic sign of a fixed width
       // escaping its container.
       horizontalOverflow: document.documentElement.scrollWidth > window.innerWidth + 1,
@@ -61,7 +53,7 @@ async function boxes(page: Page) {
 for (const size of SIZES) {
   test(`the map keeps its share of the screen on a ${size.name}`, async ({ page }) => {
     await page.setViewportSize({ width: size.width, height: size.height });
-    await stub(page);
+    await stubBasemap(page);
     await page.goto('/');
 
     const before = await boxes(page);
@@ -72,15 +64,14 @@ for (const size of SIZES) {
     expect(before.mapWidth).toBeGreaterThan(0);
     expect(before.horizontalOverflow).toBe(false);
 
-    // A result adds a panel to the controls. On a phone that panel is the
+    // An answer adds a panel to the controls. On a phone that panel is the
     // tallest thing on the page, and it must not push the map out again.
-    await page.getByRole('button', { name: /no supermarket within a kilometre/i }).click();
-    await expect(page.getByText('Flood exposure and grocery access')).toBeVisible();
+    await openPreset(page, PRESETS.grocery);
 
     const after = await boxes(page);
     expect(
       after.mapHeight,
-      `map shrank to ${after.mapHeight}px once a result arrived`,
+      `map shrank to ${after.mapHeight}px once an answer arrived`,
     ).toBeGreaterThanOrEqual(size.height * MIN_MAP_SHARE);
     expect(after.horizontalOverflow).toBe(false);
   });
@@ -88,11 +79,9 @@ for (const size of SIZES) {
 
 test('the answer is readable without hunting for it', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await stub(page);
-  await page.goto('/');
-  await page.getByRole('button', { name: /no supermarket within a kilometre/i }).click();
+  await openPreset(page, PRESETS.grocery);
 
-  const answer = page.getByText(/of 2,830 block groups/);
+  const answer = page.getByText(/of \d[\d,]* block groups/);
   await expect(answer).toBeVisible();
 
   // Visible is not the same as in view: the panel used to render below eight
@@ -107,7 +96,7 @@ test('the answer is readable without hunting for it', async ({ page }) => {
 
 test('the county boundary frames the study area', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await stub(page);
+  await stubBasemap(page);
   await page.goto('/');
 
   // The mask and outline are what tell a reader where the analysis stops. They

@@ -47,6 +47,12 @@ export default defineConfig({
 
   webServer: {
     command: `npm run build && npx next start --port ${PORT}`,
+    // The page renders on the server now, so the suite cannot intercept an
+    // API call the browser no longer makes. It runs against the real server
+    // backed by a sampled copy of the real table instead — which also means
+    // anyone who clones the repo can run both the app and its tests without
+    // Neon credentials.
+    env: { CATCHMENT_DATA: 'fixture' },
     url: `http://127.0.0.1:${PORT}`,
     reuseExistingServer: !process.env.CI,
     timeout: 240_000,
