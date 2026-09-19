@@ -135,7 +135,17 @@ export const PRIMITIVES = {
   },
   flood_exposure: {
     op: 'flood_exposure',
-    summary: 'Keep block groups with at least min_pct of their area in a floodplain.',
+    // Which floodplain, explicitly. This read "in a floodplain" until the
+    // evaluation caught what that costs: asked about the 500-year zone, the
+    // model reached for this op, because nothing here said it only ever means
+    // flood_pct. The result validates, draws, and answers the wrong question —
+    // and understating flood exposure is the specific error Harvey made
+    // famous. The rule below about unqualified "floodplain" was already in the
+    // prompt; it did not help, because the ambiguity was in the catalogue.
+    summary:
+      'Keep block groups with at least min_pct of their area in the 1% annual chance ' +
+      'floodplain (flood_pct). This op only ever means flood_pct — for the 0.2% ' +
+      'annual chance zone use filter on flood_pct_500.',
     params: 'min_pct (0-1)',
   },
   resource_gap: {
