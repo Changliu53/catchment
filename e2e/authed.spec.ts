@@ -204,13 +204,19 @@ test('save, share, rename, delete', async ({ page }) => {
 
 test('opening the delete confirmation moves nothing else on the row', async ({ page }) => {
   // Measured rather than eyeballed, like the rest of the layout claims in this
-  // repository. As a flex row, opening the confirmation grew the cluster it
-  // sat in and the date visibly jumped left — movement nobody asked for, in
-  // the one interaction where the reader should be reading.
+  // repository. Opening the confirmation grew the cluster it sat in, and
+  // because that cluster is anchored to the right edge the date slid 57
+  // pixels left — movement nobody asked for, in the one interaction where the
+  // reader should be reading.
   //
-  // Two separate causes, so two things to hold: the confirmation has to open
-  // onto a row of its own rather than widen this one, and the trigger has to
-  // keep its width when its label swaps from Delete to Cancel.
+  // Two assertions, because the fix has two failure modes and the second one
+  // was shipped before it was caught. The confirmation must not move anything
+  // horizontally, which is why it is out of flow; and the row must not grow,
+  // which is what a first attempt did by moving the confirmation to a
+  // full-width line of its own. That stopped the sliding and looked worse.
+  //
+  // The trigger also has to keep its width when its label swaps from Delete
+  // to Cancel, or the date moves by the difference.
   await page.goto('/?preset=densest');
   await page.getByLabel('Name for this analysis').fill('A row to measure');
   await page.getByRole('button', { name: /^save$/i }).click();
@@ -221,14 +227,24 @@ test('opening the delete confirmation moves nothing else on the row', async ({ p
   const row = page.locator('li', { hasText: 'A row to measure' });
   const date = row.locator('time');
 
-  const before = await date.boundingBox();
+  const dateBefore = await date.boundingBox();
+  const rowBefore = await row.boundingBox();
+
   await row.locator('summary').click();
   await expect(row.getByRole('button', { name: /^delete$/i })).toBeVisible();
-  const after = await date.boundingBox();
 
-  expect(before).not.toBeNull();
-  expect(after!.x).toBeCloseTo(before!.x, 0);
-  expect(after!.y).toBeCloseTo(before!.y, 0);
+  const dateAfter = await date.boundingBox();
+  const rowAfter = await row.boundingBox();
+
+  expect(dateBefore).not.toBeNull();
+  expect(dateAfter!.x).toBeCloseTo(dateBefore!.x, 0);
+  expect(dateAfter!.y).toBeCloseTo(dateBefore!.y, 0);
+  expect(rowAfter!.height).toBeCloseTo(rowBefore!.height, 0);
+
+  // And the confirmation is inside the card it belongs to, not overlapping
+  // the next one — which is the thing absolute positioning gets wrong.
+  const confirmation = (await row.locator('form').boundingBox())!;
+  expect(confirmation.y + confirmation.height).toBeLessThanOrEqual(rowAfter!.y + rowAfter!.height);
 
   // Tidy up. `waitForURL(/\/saved/)` would return at once — we are already
   // there — so the signal to wait for is the confirmation, not the address.
