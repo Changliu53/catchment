@@ -202,6 +202,44 @@ test('save, share, rename, delete', async ({ page }) => {
   expect((await page.request.get(`/a/${slug}`)).status()).toBe(404);
 });
 
+test('opening the delete confirmation moves nothing else on the row', async ({ page }) => {
+  // Measured rather than eyeballed, like the rest of the layout claims in this
+  // repository. As a flex row, opening the confirmation grew the cluster it
+  // sat in and the date visibly jumped left — movement nobody asked for, in
+  // the one interaction where the reader should be reading.
+  //
+  // Two separate causes, so two things to hold: the confirmation has to open
+  // onto a row of its own rather than widen this one, and the trigger has to
+  // keep its width when its label swaps from Delete to Cancel.
+  await page.goto('/?preset=densest');
+  await page.getByLabel('Name for this analysis').fill('A row to measure');
+  await page.getByRole('button', { name: /^save$/i }).click();
+  await page.waitForURL(/\/a\/[a-z0-9]+/);
+  const slug = new URL(page.url()).pathname.split('/a/')[1]!;
+
+  await page.goto('/saved');
+  const row = page.locator('li', { hasText: 'A row to measure' });
+  const date = row.locator('time');
+
+  const before = await date.boundingBox();
+  await row.locator('summary').click();
+  await expect(row.getByRole('button', { name: /^delete$/i })).toBeVisible();
+  const after = await date.boundingBox();
+
+  expect(before).not.toBeNull();
+  expect(after!.x).toBeCloseTo(before!.x, 0);
+  expect(after!.y).toBeCloseTo(before!.y, 0);
+
+  // Tidy up. `waitForURL(/\/saved/)` would return at once — we are already
+  // there — so the signal to wait for is the confirmation, not the address.
+  await row.getByRole('button', { name: /^delete$/i }).click();
+  await expect(page.getByText(/^Deleted\./)).toBeVisible();
+  await expect(row).toHaveCount(0);
+
+  const { rows } = await db.query('select 1 from saved_analysis where slug = $1', [slug]);
+  expect(rows).toHaveLength(0);
+});
+
 test('the whole flow still works with JavaScript switched off', async ({ browser, baseURL }) => {
   // Three client components were added to this panel to make it feel less
   // inert — a pending state on the buttons, a Copy button, a toast. Each one
