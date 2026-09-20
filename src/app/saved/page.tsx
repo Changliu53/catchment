@@ -64,14 +64,9 @@ export default async function Saved({
           {rows.map((row) => (
             <li
               key={row.slug}
-              // A grid, so the confirmation can open onto a row of its own.
-              // As a flex row it grew the right-hand cluster instead, and the
-              // date visibly jumped left the moment Delete was pressed —
-              // movement nobody asked for, in the one interaction where the
-              // reader should be reading rather than watching things move.
-              className="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 rounded-md border border-slate-200 p-3"
+              className="flex items-start justify-between gap-4 rounded-md border border-slate-200 p-3"
             >
-              <div className="col-start-1 min-w-0">
+              <div className="min-w-0">
                 <div className="flex items-baseline gap-2">
                   <Link
                     href={pathFor(row.slug)}
@@ -93,14 +88,25 @@ export default async function Saved({
                     unreadable in a list of your own work. */}
                 <p className="mt-0.5 truncate text-xs text-slate-600">{questionFor(row)}</p>
               </div>
-              <time
-                dateTime={row.createdAt.toISOString()}
-                className="col-start-2 text-xs tabular-nums text-slate-400"
-              >
-                {when.format(row.createdAt)}
-              </time>
+              {/* `relative`, and the confirmation inside it is absolutely
+                  positioned. That is the whole fix for a real complaint:
+                  opening the confirmation used to widen this cluster, and
+                  because the cluster is anchored to the right edge, the date
+                  slid 57 pixels left. Out of flow, it cannot.
 
-              {/* Deleting used to require opening the analysis first, which
+                  An earlier attempt moved the confirmation to a full-width
+                  row of its own. That also stopped the movement, and was
+                  worse: the row grew a line taller and the confirmation
+                  floated away from the control that opened it. */}
+              <div className="relative flex shrink-0 items-baseline gap-3">
+                <time
+                  dateTime={row.createdAt.toISOString()}
+                  className="text-xs tabular-nums text-slate-400"
+                >
+                  {when.format(row.createdAt)}
+                </time>
+
+                {/* Deleting used to require opening the analysis first, which
                     is the wrong way round: the list is where you tidy up. Two
                     steps because it cannot be undone, and a native <details>
                     rather than confirm() so it still works without
@@ -111,40 +117,33 @@ export default async function Saved({
                     saying "Delete" — a destructive control apparently offered
                     twice, with no way back out. It is the trigger that becomes
                     the cancel, which is where a reader reaches. */}
-              {/* `display: contents`, so the summary and the form become grid
-                  items of the row itself rather than children of a box that
-                  has to grow to hold them. The trigger keeps its place beside
-                  the date; the confirmation lands on the next row. `<summary>`
-                  has to be the first child of `<details>`, which rules out
-                  wrapping it in anything, and this is the way around that.
-                  The browser still hides a closed details' other children, so
-                  nothing is revealed early — checked, not assumed. */}
-              <details className="group contents">
-                {/* Both labels share one grid cell, so the trigger is always
-                    as wide as the wider of them and swapping them moves
-                    nothing. `invisible` rather than `hidden` is what reserves
-                    the width — and visibility:hidden is also kept out of the
-                    accessibility tree, so only one label is ever read. */}
-                <summary className="col-start-3 grid cursor-pointer list-none text-xs text-slate-400 underline-offset-2 hover:text-red-700 hover:underline">
-                  <span className="col-start-1 row-start-1 group-open:invisible">Delete</span>
-                  <span className="invisible col-start-1 row-start-1 group-open:visible">
-                    Cancel
-                  </span>
-                </summary>
-                <form
-                  action={deleteAnalysis}
-                  className="col-span-3 mt-1.5 flex items-center justify-end gap-2"
-                >
-                  <input type="hidden" name="slug" value={row.slug} />
-                  <span className="text-[11px] text-slate-500">Cannot be undone.</span>
-                  <SubmitButton
-                    pending="Deleting"
-                    className="rounded border border-red-300 px-2 py-0.5 text-[11px] font-medium text-red-700 transition hover:bg-red-50"
+                <details className="group">
+                  {/* Both labels share one grid cell, so the trigger is as
+                      wide as the wider of them and swapping them moves
+                      nothing either. `invisible` rather than `hidden` is what
+                      reserves the width, and visibility:hidden is kept out of
+                      the accessibility tree, so only one is ever read. */}
+                  <summary className="grid cursor-pointer list-none text-xs text-slate-400 underline-offset-2 hover:text-red-700 hover:underline">
+                    <span className="col-start-1 row-start-1 group-open:invisible">Delete</span>
+                    <span className="invisible col-start-1 row-start-1 group-open:visible">
+                      Cancel
+                    </span>
+                  </summary>
+                  <form
+                    action={deleteAnalysis}
+                    className="absolute top-full right-0 mt-1.5 flex items-center gap-2 whitespace-nowrap"
                   >
-                    Delete
-                  </SubmitButton>
-                </form>
-              </details>
+                    <input type="hidden" name="slug" value={row.slug} />
+                    <span className="text-[11px] text-slate-500">Cannot be undone.</span>
+                    <SubmitButton
+                      pending="Deleting"
+                      className="rounded border border-red-300 px-2 py-0.5 text-[11px] font-medium text-red-700 transition hover:bg-red-50"
+                    >
+                      Delete
+                    </SubmitButton>
+                  </form>
+                </details>
+              </div>
             </li>
           ))}
         </ul>
