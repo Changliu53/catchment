@@ -1,4 +1,4 @@
-# The model evaluation, on a schedule and on demand — deliberately not on push.
+# The model evaluation, on demand — deliberately not on push.
 #
 # A model call per push is a bill that grows with commit frequency, a
 # third-party dependency inside the gate that decides whether code ships, and,
@@ -12,10 +12,11 @@
 name: eval
 
 on:
-  schedule:
-    # Mondays, 09:00 UTC. A weekly number is enough to see drift; a daily one
-    # is a number nobody looks at.
-    - cron: '0 9 * * 1'
+  # No schedule. It ran weekly for two months and skipped every time, because
+  # the repository had no API key: a green tick each Monday for a job that did
+  # nothing. With a key, a weekly run is a standing charge on a small account
+  # for a number that only moves when the prompt or the model changes, so it
+  # runs when one of those does. A full run is about 30 short Haiku calls.
   workflow_dispatch:
     inputs:
       threshold:
