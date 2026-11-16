@@ -12,6 +12,11 @@ a CSV of WKB hex into Postgres via COPY.
 
 Safe to re-run: it loads into a staging table and swaps in one transaction, so
 a failure part-way through leaves the existing data untouched.
+
+It also works on an empty database. `schema.sql` creates the PostGIS extension
+and the `block_groups` table if they are missing; before that file existed, the
+table's definition was nowhere in the repository and a fresh database failed at
+the first DELETE.
 """
 
 from __future__ import annotations
@@ -27,6 +32,7 @@ import paths  # noqa: E402  (same directory; keeps one definition of where thing
 
 CSV = paths.TABLE
 MANIFEST = paths.MANIFEST
+SCHEMA = Path(__file__).resolve().parent / "schema.sql"
 
 COLUMNS = (
     "geoid, pop, median_income, income_topcoded, area_m2, pop_density, "
@@ -136,6 +142,7 @@ def main() -> int:
         print(f"source  : {CSV.name} (unverified — {m['reason']})")
 
     with psycopg.connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute(SCHEMA.read_text())
         cur.execute(CREATE_STAGING)
 
         copy_sql = f"COPY block_groups_staging ({COLUMNS}) FROM STDIN WITH (FORMAT csv, HEADER true)"

@@ -96,10 +96,13 @@ its answer to anything that can read HTML, and — apart from the map — the ap
 works with JavaScript switched off, because the question box is an ordinary
 GET form and the presets are ordinary links.
 
-Measured on the deployed build: a preset answer arrives as one 64 KB HTML
-document containing the headline figures, the statistics table and the audit
-trail. The previous version served 22 KB of shell, then ran the bundle, then
-POSTed for the data.
+Measured on the deployed build: a preset answer arrives as one HTML document
+containing the headline figures, the statistics table and the audit trail:
+15–24 KB over the wire (110–135 KB uncompressed) for the presets that draw a
+selection. The comparison preset is the exception: it draws all 2,830 block
+groups, so its document carries the whole county's geometry, about 400 KB
+compressed. The previous version served 22 KB of shell, then ran the bundle,
+then POSTed for the data.
 
 The only client component is the map island — WebGL, a Web Worker, and the
 hover/selection state that follows a pointer or a tap. Everything else,
@@ -522,7 +525,9 @@ that will run in production is reviewable in the diff rather than produced by a
 tool at deploy time.
 
 To rebuild the dataset from scratch: `pipeline/extract.py` → `spatial.py` →
-`analyze.py` → `load_postgis.py`, then `county_outline.py`.
+`analyze.py` → `load_postgis.py`, then `county_outline.py`. The loader applies
+`pipeline/schema.sql` first, which creates the PostGIS extension and the
+`block_groups` table if they are missing, so an empty database is enough.
 
 `analyze.py` writes `build/block_groups.manifest.json` next to the table it
 produces — row count, byte size, columns, SHA-256 — and `load_postgis.py`
