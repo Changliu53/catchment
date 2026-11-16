@@ -100,7 +100,8 @@ export default function Legend({ field, values, breaks, missing, split }: Props)
               style={{ borderColor: SPLIT_OUTLINE }}
             />
             <span>
-              {'\u2265'} {formatValue(split.field, split.threshold)} floodplain
+              {'\u2265'} {formatValue(split.field, split.threshold)}{' '}
+              {labelFor(split.field).toLowerCase()}
             </span>
             <span className="tabular-nums text-slate-400">{split.above}</span>
           </div>
