@@ -26,6 +26,7 @@ import { checkRateLimit } from './rate-limit';
 import { planCache, normaliseQuestion } from './cache';
 import { OrchestrationError, planFromQuestion } from './orchestrate';
 import { validatePlan, type Plan } from './validate';
+import type { FieldName } from './schema';
 
 export const MAX_QUESTION_LENGTH = 300;
 
@@ -42,8 +43,14 @@ export interface Answer {
   totals: Awaited<ReturnType<typeof countyTotals>>;
   trace: { op: string; remaining: number }[];
   empty: boolean;
+  /** Rows drawn on the map and listed in the table. */
   matched: number;
   matchedPopulation: number;
+  /** Rows that met every condition, before a rank step kept only its top n. */
+  qualified: number;
+  qualifiedPopulation: number;
+  /** Set when a rank step cut the qualifying rows down, so the page can say so. */
+  rankedBy: { measure: FieldName; dir: 'asc' | 'desc' } | null;
   comparison: ReturnType<typeof execute>['comparison'] | null;
   features: Feature[];
   reading?: string;
@@ -97,6 +104,8 @@ async function run(plan: Plan, source: Answer['source'], reading?: string): Prom
   // carries the geometry that went in.
   const result = execute(plan, rows);
   const matched = result.rows;
+  const rankStep = plan.pipeline.find((s) => s.op === 'rank');
+  const cut = result.qualifying.length > matched.length;
 
   return {
     ok: true,
@@ -108,6 +117,10 @@ async function run(plan: Plan, source: Answer['source'], reading?: string): Prom
     comparison: result.comparison ?? null,
     matched: result.rows.length,
     matchedPopulation: result.rows.reduce((a, r) => a + r.pop, 0),
+    qualified: result.qualifying.length,
+    qualifiedPopulation: result.qualifying.reduce((a, r) => a + r.pop, 0),
+    rankedBy:
+      cut && rankStep?.op === 'rank' ? { measure: rankStep.measure, dir: rankStep.dir } : null,
     // Geometry is only sent for rows that matched, which keeps a typical
     // response well under a megabyte even though the full dataset is larger.
     features: matched.map((r) => ({

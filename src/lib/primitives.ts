@@ -46,6 +46,14 @@ export interface ExecutionResult<T extends BlockGroup = BlockGroup> {
   trace: { op: string; remaining: number }[];
   /** Layer 3: true when the plan ran fine but matched nothing. */
   empty: boolean;
+  /**
+   * The rows that met every condition, before the first `rank` cut them down
+   * to a top n. Without this the page could only report the rows it drew, and
+   * a top-50 view of 196 qualifying block groups read as "50 block groups, and
+   * this many people", which understated the answer by a factor of four.
+   * Equal to `rows` when the plan has no rank step.
+   */
+  qualifying: T[];
 }
 
 function valueOf(row: BlockGroup, field: FieldName): number | null {
@@ -164,15 +172,17 @@ export function execute<T extends BlockGroup>(
   let rows: T[] = [...source];
   let comparison: ComparisonResult | undefined;
   const trace: { op: string; remaining: number }[] = [];
+  let qualifying: T[] | undefined;
 
   for (const step of plan.pipeline) {
+    if (step.op === 'rank' && qualifying === undefined) qualifying = rows;
     const out = applyStep(rows, step);
     rows = out.rows;
     if (out.comparison) comparison = out.comparison;
     trace.push({ op: step.op, remaining: rows.length });
   }
 
-  return { rows, comparison, trace, empty: rows.length === 0 };
+  return { rows, comparison, trace, empty: rows.length === 0, qualifying: qualifying ?? rows };
 }
 
 /** Field metadata for the legend, so units are never hard-coded in the UI. */

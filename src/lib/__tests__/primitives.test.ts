@@ -131,3 +131,24 @@ describe('describeDistribution', () => {
     expect(d.p75).toBe(3.25);
   });
 });
+
+describe('qualifying', () => {
+  // The page states this count as the answer, so it has to be the rows that
+  // met every condition, not the top n that a rank step kept for the map.
+  it('keeps the rows that entered the first rank step', () => {
+    const r = execute(
+      plan([
+        { op: 'flood_exposure', min_pct: 0.5 },
+        { op: 'rank', measure: 'pop', dir: 'desc', n: 1 },
+      ]),
+      FIXTURE_ROWS,
+    );
+    expect(r.rows).toHaveLength(1);
+    expect(ids(r.qualifying)).toEqual(['A', 'B', 'E']);
+  });
+
+  it('is the result itself when there is no rank step', () => {
+    const r = execute(plan([{ op: 'flood_exposure', min_pct: 0.5 }]), FIXTURE_ROWS);
+    expect(r.qualifying).toEqual(r.rows);
+  });
+});
