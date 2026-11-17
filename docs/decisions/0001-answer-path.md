@@ -28,7 +28,7 @@ Three tiers, tried in order, and most traffic never leaves the first.
    data in the build. Clicking one costs no model call, no API key and no
    rate-limit budget. The plan is still run through the validator before it
    executes — a preset is not trusted for being ours.
-2. **Cache.** A normalised question (lowercased, whitespace collapsed, trailing
+2. **Cache.** A normalized question (lowercased, whitespace collapsed, trailing
    punctuation dropped) is looked up in an LRU of 500 plans. Two visitors who
    ask the same thing in different words still pay twice; that is accepted. The
    win is the same question repeated, which in a demo is most of the traffic —
@@ -50,7 +50,7 @@ stale, never dishonest.
 
 **Cache the answer rather than the plan.** Smaller and faster, and wrong
 whenever the pipeline is re-run: the cached numbers would outlive the data they
-came from. The plan is the durable artefact; the numbers are recomputed every
+came from. The plan is the durable artifact; the numbers are recomputed every
 time, which is also what makes a share link honest.
 
 ## Consequences

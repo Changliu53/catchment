@@ -2,8 +2,8 @@
  * The cache is the middle tier: it decides how often a question reaches a
  * model at all.
  *
- * Two behaviours matter and neither is obvious from the type. First, what
- * counts as "the same question" — normalisation is the entire hit rate, since
+ * Two behaviors matter and neither is obvious from the type. First, what
+ * counts as "the same question" — normalization is the entire hit rate, since
  * two people never type identical strings. Second, that the LRU evicts the
  * least *recently used* entry rather than the oldest inserted; get the second
  * wrong and a popular question gets thrown out by a run of one-off ones.
@@ -11,7 +11,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { normaliseQuestion, planCache } from '@/lib/cache';
+import { normalizeQuestion, planCache } from '@/lib/cache';
 import type { Plan } from '@/lib/validate';
 
 const plan = (title: string): Plan =>
@@ -28,13 +28,13 @@ beforeEach(() => {
   (planCache as unknown as { clear(): void }).clear();
 });
 
-describe('normaliseQuestion', () => {
+describe('normalizeQuestion', () => {
   it('ignores case and surrounding space', () => {
-    expect(normaliseQuestion('  Where Is Flooding Worst  ')).toBe('where is flooding worst');
+    expect(normalizeQuestion('  Where Is Flooding Worst  ')).toBe('where is flooding worst');
   });
 
   it('collapses runs of whitespace, including newlines', () => {
-    expect(normaliseQuestion('where   is\n\tflooding worst')).toBe('where is flooding worst');
+    expect(normalizeQuestion('where   is\n\tflooding worst')).toBe('where is flooding worst');
   });
 
   it('drops trailing punctuation, which is where people differ most', () => {
@@ -43,13 +43,13 @@ describe('normaliseQuestion', () => {
       'Where is flooding worst.',
       'where is flooding worst!!',
     ];
-    for (const form of forms) expect(normaliseQuestion(form)).toBe('where is flooding worst');
+    for (const form of forms) expect(normalizeQuestion(form)).toBe('where is flooding worst');
   });
 
   it('leaves punctuation that is part of the question alone', () => {
     // Only *trailing* punctuation is noise. A question mark in the middle is
     // two questions, and "$250,001" is a number.
-    expect(normaliseQuestion('income over $250,001 — where?')).toBe('income over $250,001 — where');
+    expect(normalizeQuestion('income over $250,001 — where?')).toBe('income over $250,001 — where');
   });
 });
 

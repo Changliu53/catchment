@@ -230,7 +230,7 @@ export default async function Explorer({ preset, q, me, saved, origin }: Explore
           <div className="pointer-events-none absolute inset-0 grid place-items-center p-6">
             <p className="max-w-sm rounded-lg bg-white/90 p-4 text-center text-sm leading-relaxed text-slate-600 shadow-sm">
               Pick a question on the left. Google Maps can tell you where a supermarket is; it
-              cannot tell you which flooded neighbourhoods have none.
+              cannot tell you which flooded neighborhoods have none.
             </p>
           </div>
         )}

@@ -113,7 +113,7 @@ let instance: Auth | null = null;
  * Null when this deployment is not set up for accounts.
  *
  * The environment is re-read on every call and only the built instance is
- * memoised. Caching the *answer* instead would freeze whatever the first
+ * memoized. Caching the *answer* instead would freeze whatever the first
  * caller saw, which makes the predicate untestable and hides a variable added
  * after boot.
  */

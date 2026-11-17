@@ -26,7 +26,7 @@ import { PRESETS, UNSUPPORTED_EXAMPLE } from './presets';
 
 // Dated snapshot, not a bare alias: `claude-haiku-4-5` is not a valid
 // identifier and the API rejects it. Pinning the snapshot also means a new
-// Haiku release cannot silently change this demo's behaviour.
+// Haiku release cannot silently change this demo's behavior.
 const MODEL = process.env.ANTHROPIC_MODEL ?? 'claude-haiku-4-5-20251001';
 
 // A translation into a closed schema needs no reasoning ability, so this is
@@ -74,7 +74,7 @@ const STEP_SCHEMA = {
     },
     max_distance_m: {
       type: 'number',
-      description: 'resource_gap: keep block groups farther than this, in metres.',
+      description: 'resource_gap: keep block groups farther than this, in meters.',
     },
     measure: { ...fieldEnum, description: 'rank, compare: the field being measured.' },
     dir: { type: 'string', enum: ['asc', 'desc'], description: 'rank: sort direction.' },
@@ -90,14 +90,14 @@ const STEP_SCHEMA = {
  * Two tools, not one with a union. Declining is a first-class outcome, so it
  * gets its own tool rather than a variant the model has to notice it may pick.
  */
-export const ANALYSE_TOOL = {
-  name: 'analyse',
+export const ANALYZE_TOOL = {
+  name: 'analyze',
   description: 'Run an analysis over Harris County block groups and draw the result.',
   input_schema: {
     type: 'object' as const,
     properties: {
       pipeline: { type: 'array', items: STEP_SCHEMA, minItems: 1, maxItems: MAX_PIPELINE_STEPS },
-      render: { type: 'string', enum: ['choropleth', 'points', 'comparison'] },
+      render: { type: 'string', enum: ['choropleth', 'comparison'] },
       color_by: { ...fieldEnum, description: 'Which field the map shades by.' },
       title: { type: 'string', maxLength: 120, description: 'A short title for the result.' },
     },
@@ -137,7 +137,7 @@ export function systemPrompt(): string {
     .join('\n\n');
 
   return `You translate questions about Harris County, Texas into analysis plans.
-You do not analyse anything yourself and you never see the data. Your output is
+You do not analyze anything yourself and you never see the data. Your output is
 executed by a fixed program that understands only the operations below.
 
 FIELDS (one row per census block group, 2,830 of them):
@@ -219,7 +219,7 @@ export async function planFromQuestion(question: string): Promise<unknown> {
         model: MODEL,
         max_tokens: MAX_TOKENS,
         system: systemPrompt(),
-        tools: [ANALYSE_TOOL, DECLINE_TOOL],
+        tools: [ANALYZE_TOOL, DECLINE_TOOL],
         tool_choice: { type: 'any' },
         messages,
       });
@@ -245,7 +245,7 @@ export async function planFromQuestion(question: string): Promise<unknown> {
 
     messages.push(
       { role: 'assistant', content: response.content },
-      { role: 'user', content: 'Call analyse, or call decline if the question does not fit.' },
+      { role: 'user', content: 'Call analyze, or call decline if the question does not fit.' },
     );
   }
 

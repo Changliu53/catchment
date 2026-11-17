@@ -4,7 +4,7 @@
  * This file used to hold two copies of knowledge that belongs in `schema.ts`:
  * a hand-maintained label map, and a switch over field names deciding units.
  * Adding a field meant editing three places, and forgetting one showed up as a
- * raw column name in a table header or an unlabelled number in the legend —
+ * raw column name in a table header or an unlabeled number in the legend —
  * quietly, because nothing checks that a legend makes sense.
  *
  * Both now live on the `FieldSpec`. What is left here is the part that is
@@ -38,9 +38,4 @@ export function formatValue(field: string, v: number | null | undefined): string
 /** Short human label for a field, for legend titles and table headers. */
 export function labelFor(field: string): string {
   return spec(field)?.label ?? field;
-}
-
-/** The unit, for places that show it separately from a value. */
-export function unitFor(field: string): string | null {
-  return spec(field)?.unit ?? null;
 }

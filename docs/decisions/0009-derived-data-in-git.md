@@ -5,11 +5,11 @@
 ## Context
 
 `build/block_groups.csv.gz` is 3.6 MB and it is in the repository. It is a
-build artefact: the Python pipeline produces it from Census TIGER/Line, ACS,
+build artifact: the Python pipeline produces it from Census TIGER/Line, ACS,
 FEMA NFHL and an Overpass extract, and `pipeline/load_postgis.py` streams it
 into Postgres.
 
-Committing a build artefact is a smell, and it should be treated as one rather
+Committing a build artifact is a smell, and it should be treated as one rather
 than waved past. What follows is the case for the exception, measured.
 
 **What is in it.** 2,830 rows, 12 columns, 10.4 MB uncompressed. 98% of that is

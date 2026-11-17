@@ -14,7 +14,7 @@
 import COUNTY from '@/lib/harris-county.json';
 
 /** Roughly the middle of the county; see the note on `lonScale` below. */
-const CENTRE_LATITUDE = 29.8;
+const CENTER_LATITUDE = 29.8;
 
 export interface Projected {
   /** An SVG `d` attribute covering every ring. */
@@ -37,7 +37,7 @@ export function countyPath(boxWidth: number, boxHeight: number): Projected {
   // of longitude is roughly cos(29.8°) as long as a degree of latitude, so
   // scaling the axes independently would visibly stretch it. One scale, fitted
   // to whichever axis runs out first.
-  const lonScale = Math.cos((CENTRE_LATITUDE * Math.PI) / 180);
+  const lonScale = Math.cos((CENTER_LATITUDE * Math.PI) / 180);
   const spanX = (maxX - minX) * lonScale;
   const spanY = maxY - minY;
   const scale = Math.min(boxWidth / spanX, boxHeight / spanY);

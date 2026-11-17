@@ -2,7 +2,7 @@
 Stage 2: the spatial analysis. Adds flood exposure and service distance to
 every block group.
 
-Two measurements, both done in EPSG:32615 so the units are metres:
+Two measurements, both done in EPSG:32615 so the units are meters:
 
   flood_pct       share of block-group area inside a FEMA Special Flood Hazard
                   Area (SFHA_TF = 'T') — the 1% annual chance, "100-year",

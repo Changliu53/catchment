@@ -76,7 +76,7 @@ describe('formatValue', () => {
 });
 
 describe('colorExpression', () => {
-  it('routes a null value to the no-data colour, not to the ramp', () => {
+  it('routes a null value to the no-data color, not to the ramp', () => {
     const expr = colorExpression('median_income', [40000, 60000]) as unknown[];
     expect(expr[0]).toBe('case');
     // The condition has to compare against null itself. `has` reports an
@@ -102,7 +102,7 @@ describe('colorExpression', () => {
     expect(shaded.slice(2)).toEqual([RAMP[0], 100, RAMP[1], 200, RAMP[2], 300, RAMP[3]]);
   });
 
-  it('falls back to a flat colour when there is nothing to classify', () => {
+  it('falls back to a flat color when there is nothing to classify', () => {
     expect(colorExpression(null, [1, 2])).toBe(RAMP[1]);
     const flat = colorExpression('pop', []) as unknown[];
     expect(flat[3]).toBe(RAMP[1]);
@@ -110,7 +110,7 @@ describe('colorExpression', () => {
 });
 
 describe('SPLIT_OUTLINE', () => {
-  it('is not one of the ramp colours', () => {
+  it('is not one of the ramp colors', () => {
     // A comparison puts two variables on the map: the measure it compares, by
     // fill, and the group it splits on, by outline. If the outline came from
     // the ramp it would read as one more class of the fill rather than as a

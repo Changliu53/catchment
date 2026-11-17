@@ -10,7 +10,7 @@ inputs genuinely live somewhere else.
 `raw/` and `build/` are both ignored by git apart from the one compressed CSV
 the application loads, because the intermediate GeoJSON is 15 MB and
 reproducible from the sources by definition. That one exception is a build
-artefact in source control, which is a thing worth being deliberate about —
+artifact in source control, which is a thing worth being deliberate about —
 see docs/decisions/0009-derived-data-in-git.md, and the manifest below, which
 is what makes a regeneration of it a visible act rather than a silent one.
 """
@@ -75,7 +75,7 @@ def write_manifest(table: Path, manifest: Path, rows: int) -> dict:
     """
     Record what was built, next to the thing that was built.
 
-    The table is a 3.6 MB build artefact kept in source control so that a
+    The table is a 3.6 MB build artifact kept in source control so that a
     clone can load the database without re-running the whole pipeline. The
     manifest is what keeps that honest: it is small, it is diffable, and it
     means regenerating the table shows up in review as a changed checksum and

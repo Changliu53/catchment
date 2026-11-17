@@ -39,7 +39,7 @@ async function load(slug: string): Promise<{ title: string; question: string | n
     if (!row) return null;
 
     // A saved row holds a preset id or free text, never both. Either way the
-    // card should show the question a reader would recognise, so a preset is
+    // card should show the question a reader would recognize, so a preset is
     // resolved back to its wording rather than captioned generically.
     const question = row.question ?? PRESETS.find((p) => p.id === row.presetId)?.question ?? null;
 

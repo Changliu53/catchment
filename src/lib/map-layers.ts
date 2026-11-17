@@ -20,7 +20,7 @@
  * it no longer knows what is in them.
  *
  * Only the parts that never change live here. Anything that depends on the
- * current answer (the colour ramp, the comparison's filter) is applied by
+ * current answer (the color ramp, the comparison's filter) is applied by
  * `paint`, and the two dynamic expressions it needs are the functions at the
  * bottom.
  */
@@ -83,7 +83,7 @@ export const LAYERS: LayerSpecification[] = [
     id: 'results-fill',
     type: 'fill',
     source: 'results',
-    // Replaced by `paint` as soon as there is anything to shade; a flat colour
+    // Replaced by `paint` as soon as there is anything to shade; a flat color
     // here rather than the ramp so an unshaded result is not a map of noise.
     paint: { 'fill-color': RAMP[1], 'fill-opacity': FILL_OPACITY },
   },
@@ -118,7 +118,7 @@ export const LAYERS: LayerSpecification[] = [
   {
     // Block groups are small. A result scattered across the county forces a
     // zoom where each polygon is a few pixels wide — drawn, but on a busy
-    // basemap indistinguishable from nothing. Dots carry the same colour there
+    // basemap indistinguishable from nothing. Dots carry the same color there
     // and hand back to the polygons on the way in.
     id: 'results-dots',
     type: 'circle',
@@ -164,7 +164,7 @@ export function splitFilter(field: string, threshold: number): unknown {
 /**
  * The outline weight for the ordinary results edge.
  *
- * A comparison covers the whole county, so every polygon has a neighbour and
+ * A comparison covers the whole county, so every polygon has a neighbor and
  * 2,830 outlined shapes read as a mesh laid over the map rather than as
  * boundaries. The hovered edge stays at full strength either way — that is the
  * one the reader is asking about.

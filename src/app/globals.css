@@ -2,8 +2,8 @@
 
 /*
  * One palette, defined once. The choropleth ramp is sequential and
- * colour-blind safe (viridis-derived); the accent is used only for
- * interactive affordances so colour never carries meaning alone.
+ * color-blind safe (viridis-derived); the accent is used only for
+ * interactive affordances so color never carries meaning alone.
  */
 @theme {
   --color-ink: oklch(0.22 0.02 260);
@@ -36,7 +36,7 @@ body {
  *
  * A keyframe rather than a transition because the element is inserted already
  * in its final state — there is no "before" for a transition to run from. The
- * component honours prefers-reduced-motion through Tailwind's motion-reduce
+ * component honors prefers-reduced-motion through Tailwind's motion-reduce
  * variant, so this is the animated path only.
  */
 @keyframes toast-in {

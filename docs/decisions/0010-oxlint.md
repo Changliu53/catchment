@@ -76,7 +76,7 @@ success.
   run.
 - Some ESLint rules have no oxlint equivalent yet. Nothing that was catching
   something here, but the rule set is smaller and that is a real cost.
-- One more tool a reader has to recognise. Hence this file.
+- One more tool a reader has to recognize. Hence this file.
 
 ## How this is held
 

@@ -69,7 +69,7 @@ describe('semantic validation', () => {
 });
 
 describe('refusals', () => {
-  it('recognises a well-formed unsupported response', () => {
+  it('recognizes a well-formed unsupported response', () => {
     const r = validatePlan({
       unsupported: true,
       reason: 'Commute time needs a road network, which this dataset does not include.',

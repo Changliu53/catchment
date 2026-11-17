@@ -69,7 +69,7 @@ test.describe('server rendering', () => {
 
     // The presets have to be links, not buttons with handlers, or the page is
     // a dead end without scripting.
-    const preset = page.getByRole('link', { name: /no supermarket within a kilometre/i });
+    const preset = page.getByRole('link', { name: /no supermarket within a kilometer/i });
     await expect(preset).toHaveAttribute('href', `/?preset=${PRESETS.grocery}`);
 
     await context.close();

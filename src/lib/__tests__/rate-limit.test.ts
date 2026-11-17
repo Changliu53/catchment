@@ -4,7 +4,7 @@
  * `checkRateLimit(key, now = Date.now())` takes the clock as an argument and
  * `resetRateLimit()` empties the map — two seams that exist for testing and,
  * until now, were not used by any test. A limiter nobody exercises is a
- * limiter nobody knows the behaviour of, which is an uncomfortable thing to
+ * limiter nobody knows the behavior of, which is an uncomfortable thing to
  * say about the component whose job is to bound a cost.
  *
  * The window is a rolling hour, not a fixed bucket, so these assert on the

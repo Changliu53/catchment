@@ -48,7 +48,7 @@ TOLERANCE_PCT = 1.0
 METRIC = "EPSG:32615"
 WGS84 = "EPSG:4326"
 
-# Metres. Large enough to cut the vertex count hard, small enough that the
+# Meters. Large enough to cut the vertex count hard, small enough that the
 # boundary still reads as Harris County at every zoom the map allows — the
 # county is ~90 km across, so 200 m is about two screen pixels at county zoom.
 SIMPLIFY_M = 200.0

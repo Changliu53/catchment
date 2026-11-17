@@ -13,7 +13,7 @@
  * `label` and `format` live here rather than in the UI, and that was a
  * correction: `format.ts` used to keep its own label map and its own switch
  * over units, so adding a field meant editing three places and forgetting one
- * of them showed up as a raw column name or an unlabelled number in the
+ * of them showed up as a raw column name or an unlabeled number in the
  * legend. The whole point of this file is that adding a field is one edit.
  */
 export interface FieldSpec {
@@ -97,7 +97,7 @@ const FIELDS_RAW = {
     name: 'pop_density',
     label: 'Population density',
     unit: 'people/km^2',
-    description: 'Population per square kilometre, precomputed by the pipeline',
+    description: 'Population per square kilometer, precomputed by the pipeline',
     range: [0, 100_000],
     format: (v) => `${int(v)}/km²`,
   },
@@ -141,7 +141,7 @@ export const PRIMITIVES = {
     // flood_pct. The result validates, draws, and answers the wrong question —
     // and understating flood exposure is the specific error Harvey made
     // famous. The rule below about unqualified "floodplain" was already in the
-    // prompt; it did not help, because the ambiguity was in the catalogue.
+    // prompt; it did not help, because the ambiguity was in the catalog.
     summary:
       'Keep block groups with at least min_pct of their area in the 1% annual chance ' +
       'floodplain (flood_pct). This op only ever means flood_pct — for the 0.2% ' +
@@ -151,7 +151,7 @@ export const PRIMITIVES = {
   resource_gap: {
     op: 'resource_gap',
     summary: 'Keep block groups farther than max_distance_m from the nearest POI of a type.',
-    params: 'poi_type (supermarket|park), max_distance_m (metres)',
+    params: 'poi_type (supermarket|park), max_distance_m (meters)',
   },
   rank: {
     op: 'rank',

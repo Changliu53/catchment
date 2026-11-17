@@ -11,7 +11,7 @@ import type { Plan } from './validate';
 const MAX_ENTRIES = 500;
 
 /** Lowercase, collapse whitespace, drop trailing punctuation. */
-export function normaliseQuestion(q: string): string {
+export function normalizeQuestion(q: string): string {
   return q
     .toLowerCase()
     .replace(/\s+/g, ' ')

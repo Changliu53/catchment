@@ -5,7 +5,7 @@
  *
  * This panel used to offer Rename and Delete and nothing else, while the
  * sentence that got people to sign in read "get a link you can share". The
- * link existed only in the address bar — so the one promised artefact was the
+ * link existed only in the address bar — so the one promised artifact was the
  * one thing the interface never showed.
  *
  * Three states rather than the usual two, because the middle one is the one
@@ -94,7 +94,7 @@ export default function ShareLink({ url }: { url: string }) {
         ) : null}
       </div>
 
-      {/* Announced rather than only coloured, since the button's own label is
+      {/* Announced rather than only colored, since the button's own label is
           what changes and a screen reader would not otherwise revisit it.
           `<output>` carries role=status implicitly, which is one fewer thing
           to keep in sync than the attribute. */}

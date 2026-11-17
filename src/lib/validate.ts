@@ -62,7 +62,7 @@ export type Step = z.infer<typeof stepSchema>;
 
 export const planSchema = z.object({
   pipeline: z.array(stepSchema).min(1).max(MAX_PIPELINE_STEPS),
-  render: z.enum(['choropleth', 'points', 'comparison']),
+  render: z.enum(['choropleth', 'comparison']),
   color_by: fieldName.optional(),
   title: z.string().min(1).max(120),
 });

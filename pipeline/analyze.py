@@ -1,5 +1,5 @@
 """
-Stage 2: turn the normalised GeoDataFrame into a load-ready table.
+Stage 2: turn the normalized GeoDataFrame into a load-ready table.
 
 Produces two geometries per block group:
 
@@ -44,7 +44,7 @@ def build(src: Path, out_csv: Path) -> int:
     if gdf.crs.to_epsg() != CRS_STORAGE:
         raise ValueError(f"expected EPSG:{CRS_STORAGE}, got {gdf.crs}")
 
-    # Simplify in the projected CRS so the tolerance is genuinely metres.
+    # Simplify in the projected CRS so the tolerance is genuinely meters.
     projected = gdf.to_crs(epsg=CRS_MEASURE)
     simplified = projected.geometry.simplify(
         SIMPLIFY_TOLERANCE_M, preserve_topology=True

@@ -1,7 +1,7 @@
 # Decision records
 
 Each file here holds one decision: what the situation was, what was chosen,
-what was rejected and why, and what the choice costs. The README summarises
+what was rejected and why, and what the choice costs. The README summarizes
 several of these in a paragraph each. These are the long versions — the
 alternatives that were priced and dropped, and the consequences that are still
 being paid.

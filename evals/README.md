@@ -32,19 +32,19 @@ specific near-miss:
 | `five-hundred-year` | the 100-year floodplain when the question said the 500-year zone — not a subset, and the understatement Harvey made famous |
 | `income-under-40k`  | `40` instead of `40000`, which is inside the plausible range so the semantic validator cannot see it                       |
 | `flood-70-percent`  | `70` instead of `0.7`                                                                                                      |
-| `densest`           | total population when the question said per square kilometre                                                               |
+| `densest`           | total population when the question said per square kilometer                                                               |
 | `grocery-not-park`  | parks, for a question about food deserts                                                                                   |
 | `commute-time`      | straight-line distance offered as an answer about driving                                                                  |
 
 Eight of the thirty cases are refusals. A corpus of answerable questions
-measures willingness, not judgement — and the failure mode that matters here is
+measures willingness, not judgment — and the failure mode that matters here is
 a confident wrong answer, which only a refusal case can catch. Refusals are also
 graded on being _usable_: a decline with no suggested alternative is a dead end
 on a page whose whole invitation is to type a question.
 
 ## Why expectations are structural
 
-Many different plans answer "the poorest flood-exposed neighbourhoods"
+Many different plans answer "the poorest flood-exposed neighborhoods"
 correctly. Step order varies, `n` varies, the title is free text. An
 exact-match corpus would fail on differences that are not mistakes, and an eval
 suite that cries wolf is an eval suite that gets switched off.

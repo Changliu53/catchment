@@ -4,7 +4,7 @@
  * Sequential, so: one hue, light to dark, monotone. The steps start at blue-500
  * rather than blue-100 because the marks sit at 0.85 opacity over a basemap,
  * and the blend is what the reader actually sees. Measured against the map's
- * land colour, the old light end came out at 1.05:1 — invisible. These six
+ * land color, the old light end came out at 1.05:1 — invisible. These six
  * clear 2.69:1 at the light end and stay separated all the way down.
  *
  * Breaks are quantiles of the values on screen, not fixed thresholds. Every
@@ -20,7 +20,7 @@ export const FILL_OPACITY = 0.85;
 /**
  * For block groups with no value for the field being shaded.
  *
- * Deliberately outside the ramp: a neutral grey reads as "not measured", where
+ * Deliberately outside the ramp: a neutral gray reads as "not measured", where
  * any blue — however pale — reads as "measured, and low". 273 of the county's
  * 2,830 block groups have no median household income because the Census
  * suppresses small samples, and painting those as the poorest areas in the
@@ -40,7 +40,7 @@ export const NO_DATA = '#cbd5e1';
 export const SPLIT_OUTLINE = '#b45309';
 
 /**
- * The fill colour for the shaded field, as a MapLibre expression.
+ * The fill color for the shaded field, as a MapLibre expression.
  *
  * The null branch is the point. `['==', ['get', f], null]` was checked against
  * MapLibre's own expression evaluator rather than assumed: it returns true for
@@ -83,7 +83,7 @@ export function quantileBreaks(values: number[], classes: number = RAMP.length):
     if (v === undefined) continue;
     // A break at the minimum is not a break: it would open a class that no row
     // can fall into, and a field where every row shares one value would still
-    // get two colours on the map and two rows in the legend.
+    // get two colors on the map and two rows in the legend.
     if (v <= min) continue;
     if (out.length === 0 || v > out[out.length - 1]!) out.push(v);
   }

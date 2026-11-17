@@ -28,7 +28,7 @@ test('the fill grades the measure the question is about', async ({ page }) => {
     return m.getPaintProperty('results-fill', 'fill-color');
   });
 
-  // A flat fill is a bare colour string; the original failure looked exactly
+  // A flat fill is a bare color string; the original failure looked exactly
   // like that. And it has to grade median income — shading by the split field
   // instead answers half the question.
   expect(Array.isArray(paint), `fill-color is ${JSON.stringify(paint)}`).toBe(true);
@@ -47,7 +47,7 @@ test('the group it splits on is outlined over that fill', async ({ page }) => {
     return {
       visible: m.getLayoutProperty('results-split', 'visibility'),
       filter: m.getFilter('results-split'),
-      colour: String(m.getPaintProperty('results-split', 'line-color')).toLowerCase(),
+      color: String(m.getPaintProperty('results-split', 'line-color')).toLowerCase(),
       // Over the fill, or the outline is buried under it.
       aboveFill: ids.indexOf('results-split') > ids.indexOf('results-fill'),
       dots: m.getLayoutProperty('results-dots', 'visibility'),
@@ -59,7 +59,7 @@ test('the group it splits on is outlined over that fill', async ({ page }) => {
   expect(split.filter).toEqual(['>=', ['to-number', ['get', 'flood_pct']], 0.5]);
   // Two variables need two channels: an outline taken from the fill's own ramp
   // would read as one more class of it.
-  expect(split.colour).not.toMatch(/#(3b82f6|2563eb|1d4ed8|1e40af|1e3a8a|172554)/);
+  expect(split.color).not.toMatch(/#(3b82f6|2563eb|1d4ed8|1e40af|1e3a8a|172554)/);
   // Dots reveal small polygons in a sparse result; a comparison returns the
   // whole county, where they cover the answer instead.
   expect(split.dots).toBe('none');
@@ -68,7 +68,7 @@ test('the group it splits on is outlined over that fill', async ({ page }) => {
 test('the legend explains both channels', async ({ page }) => {
   await openPreset(page, PRESETS.income);
 
-  // Captioned by the measure, because that is what the colours mean.
+  // Captioned by the measure, because that is what the colors mean.
   const legend = page.getByRole('figure', { name: 'Median household income' });
   await expect(legend).toBeVisible();
 
@@ -82,7 +82,7 @@ test('the statistics are server-rendered, not drawn by the map', async ({ page }
   await openPreset(page, PRESETS.income);
 
   // The map gained a job here; it did not take the table's.
-  // Labelled in words and the field's own unit, not as a column name and a
+  // Labeled in words and the field's own unit, not as a column name and a
   // fraction: the rows used to read "flood_pct ≥ 0.5".
   await expect(page.getByText('Area in the 100-year floodplain ≥ 50%')).toBeVisible();
   await expect(page.getByText('Area in the 100-year floodplain < 50%')).toBeVisible();

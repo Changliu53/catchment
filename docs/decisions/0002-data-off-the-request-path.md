@@ -21,12 +21,12 @@ page, before anything rendered.
 
 ## Decision
 
-The block-group table is fetched once per server instance and memoised as a
+The block-group table is fetched once per server instance and memoized as a
 promise. Requests read from memory. The database is on the startup path, not
 the request path.
 
-The memoised promise clears itself if the fetch rejects, so a transient failure
-is retried on the next request rather than cached forever — memoising a
+The memoized promise clears itself if the fetch rejects, so a transient failure
+is retried on the next request rather than cached forever — memoizing a
 rejection is the version of this that looks like it works and then serves an
 error for the life of the instance.
 
@@ -46,7 +46,7 @@ to put in a JavaScript bundle.
 **A revalidating cache keyed on the pipeline's output.** More correct, and the
 obvious next step if the pipeline ran on a schedule. It does not: it is run by
 hand when the sources update, which is followed by a deploy, which starts new
-instances. The memoisation's lifetime already matches the data's.
+instances. The memoization's lifetime already matches the data's.
 
 ## Consequences
 
@@ -64,6 +64,6 @@ instances. The memoisation's lifetime already matches the data's.
 
 The integration tests run against a real Postgres rather than a mock, so the
 one part that _is_ on the request path is tested against the database's actual
-behaviour. The memoisation's error handling has its own unit test: a rejecting
+behavior. The memoization's error handling has its own unit test: a rejecting
 fetch followed by a succeeding one must produce a success, which fails if the
 rejected promise is cached.

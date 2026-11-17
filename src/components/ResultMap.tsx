@@ -9,7 +9,7 @@
  * pointer or a tap.
  *
  * The classification arrives as props. It was computed once on the server, so
- * the legend beside this map and the colours inside it cannot disagree.
+ * the legend beside this map and the colors inside it cannot disagree.
  */
 
 import dynamic from 'next/dynamic';

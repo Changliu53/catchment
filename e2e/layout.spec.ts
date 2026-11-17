@@ -112,7 +112,7 @@ test('the county boundary frames the study area', async ({ page }) => {
     )
     .toBe(2);
 
-  // Drawn under the results, or it would grey out the answer.
+  // Drawn under the results, or it would gray out the answer.
   const order = await page.evaluate(() => {
     const m = (window as unknown as { __catchmentMap?: import('maplibre-gl').Map }).__catchmentMap!;
     const ids = m.getStyle().layers.map((l) => l.id);

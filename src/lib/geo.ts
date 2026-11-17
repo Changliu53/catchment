@@ -28,7 +28,7 @@ function ringsOf(geometry: unknown): number[][][] {
  * Mean of a polygon's outer-ring vertices.
  *
  * Not a true centroid, and deliberately not: an area-weighted centroid is more
- * code for a difference of a few hundred metres on a census block group, which
+ * code for a difference of a few hundred meters on a census block group, which
  * is invisible at the zoom the dot layer exists for. What it must not do is
  * fall outside the shape often enough to mislead, which the vertex mean does
  * not for shapes this compact.

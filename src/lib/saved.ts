@@ -84,7 +84,7 @@ export function paramsFor(row: Pick<SavedAnalysis, 'presetId' | 'question'>): st
 }
 
 /**
- * The question behind a saved row, in the words someone would recognise.
+ * The question behind a saved row, in the words someone would recognize.
  *
  * Not `paramsFor`. That builds a URL and is percent-encoded by definition, and
  * it was briefly what the saved list displayed — so a question someone typed
@@ -156,7 +156,7 @@ export async function createFor(
   input: { title: string; presetId?: string | null; question?: string | null },
 ): Promise<string> {
   // Exactly one source, matching the check constraint the database enforces.
-  // Sending both would be refused there; normalising here means the caller
+  // Sending both would be refused there; normalizing here means the caller
   // gets a clear failure rather than a constraint violation.
   const presetId = input.presetId?.trim() || null;
   const question = presetId ? null : input.question?.trim() || null;

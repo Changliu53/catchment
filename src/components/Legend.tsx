@@ -50,7 +50,7 @@ export default function Legend({ field, values, breaks, missing, split }: Props)
 
   // Nothing to explain only when there is nothing on the map. A result with
   // too few distinct values to classify still gets a legend if any of its
-  // block groups are greyed out — unexplained grey is worse than no legend.
+  // block groups are grayed out — unexplained gray is worse than no legend.
   if (clean.length === 0 && missing === 0) return null;
 
   const min = clean.length > 0 ? Math.min(...clean) : 0;
@@ -144,7 +144,7 @@ export default function Legend({ field, values, breaks, missing, split }: Props)
         {/*
           Its own row, outside the ramp. These block groups are not at the low
           end of the distribution — they are absent from it, and the legend has
-          to say so or the grey on the map is unexplained.
+          to say so or the gray on the map is unexplained.
         */}
         {split && (
           <li className="mt-1 flex items-center gap-2 border-t border-slate-200 pt-1.5 text-[11px] text-slate-700">

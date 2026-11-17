@@ -6,13 +6,13 @@ Ask a question in plain English about Harris County, Texas. The answer is
 computed over 2,830 census block groups of flood, income and service-access
 data, and drawn as a map.
 
-> Which flood-exposed neighbourhoods have no supermarket within a kilometre?
+> Which flood-exposed neighborhoods have no supermarket within a kilometer?
 
-![Income compared between block groups above and below 50% floodplain coverage: on the left the statistics, the audit trail, and the matching block groups as a table; on the right a two-channel map where colour is income and the orange outline is the floodplain group](docs/hero.png)
+![Income compared between block groups above and below 50% floodplain coverage: on the left the statistics, the audit trail, and the matching block groups as a table; on the right a two-channel map where color is income and the orange outline is the floodplain group](docs/hero.png)
 
 Google Maps can tell you where a supermarket is. It cannot express _"more than
-half of this area sits in the 100-year floodplain **and** its centre is over a
-kilometre from the nearest supermarket"_, and it will not tell you how many
+half of this area sits in the 100-year floodplain **and** its center is over a
+kilometer from the nearest supermarket"_, and it will not tell you how many
 people live there. That gap is the whole project.
 
 Next.js 16 App Router, React 19, TypeScript in strict mode, Postgres with
@@ -107,7 +107,7 @@ then POSTed for the data.
 The only client component is the map island — WebGL, a Web Worker, and the
 hover/selection state that follows a pointer or a tap. Everything else,
 including the legend, is HTML. The classification is computed once on the
-server and handed to both, so the legend and the colours cannot disagree.
+server and handed to both, so the legend and the colors cannot disagree.
 
 `DATABASE_URL` and `ANTHROPIC_API_KEY` exist only on the server. The browser
 receives a rendered page and a GeoJSON payload, and nothing else.
@@ -118,7 +118,7 @@ receives a rendered page and a GeoJSON payload, and nothing else.
 
 ## Decisions worth a look
 
-Summarised here; the full records — what was rejected, what it costs, and what
+Summarized here; the full records — what was rejected, what it costs, and what
 fails if someone quietly undoes it — are in
 [`docs/decisions/`](docs/decisions/).
 
@@ -137,8 +137,8 @@ fails if someone quietly undoes it — are in
 
 **The database is not on the request path.** The dataset is 2,830 rows and
 changes only when the pipeline is re-run, so it is fetched once per server
-instance and memoised. A request never waits on Postgres — which also means a
-cold Neon compute costs a visitor nothing. The memoised promise clears itself
+instance and memoized. A request never waits on Postgres — which also means a
+cold Neon compute costs a visitor nothing. The memoized promise clears itself
 if the fetch rejects, so a transient failure is retried rather than cached
 forever.
 
@@ -276,14 +276,14 @@ are wrong by a factor that varies with latitude.
 - **Nulls stay null, on the map as well as in the statistics.** Census income
   suppression means "unknown", not "zero", and it covers 273 of the 2,830
   block groups. They are excluded from statistics rather than coerced, they
-  sort last in both directions, they are shaded in a neutral grey outside the
+  sort last in both directions, they are shaded in a neutral gray outside the
   ramp, and the legend counts them. Coercing them would have painted them as
-  the poorest neighbourhoods in the county _and_ dragged every quantile break
+  the poorest neighborhoods in the county _and_ dragged every quantile break
   downwards, so the error would have reached rows whose data was fine.
 - **Class breaks are quantiles, not equal intervals.** Population density here
   spans three orders of magnitude; equal intervals would paint 95% of the
   county in the first class and call it a map.
-- **Colour contrast is measured on the blend.** Marks sit at 0.85 opacity over
+- **Color contrast is measured on the blend.** Marks sit at 0.85 opacity over
   a basemap, so the ramp was checked against what a reader actually sees, not
   against the raw hex.
 
@@ -379,8 +379,8 @@ next to it removes the worker deliberately and watches the probe go to zero.
 
 **Suppressed income was painted as the poorest.** 273 of 2,830 block groups
 have no income figure, and coercing them to zero shaded them as the poorest
-neighbourhoods in the county _and_ dragged every quantile break downward — so
-the error reached rows whose data was fine. Found by reading the colour
+neighborhoods in the county _and_ dragged every quantile break downward — so
+the error reached rows whose data was fine. Found by reading the color
 expression, then verified against MapLibre's own evaluator: `['==', ['get', f],
 null]` is correct, and the obvious `to-number` sentinel silently never fires.
 
@@ -452,7 +452,7 @@ One component, deliberately small. The model translates English into an
 analysis plan and does nothing else: it never sees the data, never computes a
 number, and never emits code.
 
-That makes its output safe by construction rather than by sanitising. The tool
+That makes its output safe by construction rather than by sanitizing. The tool
 schema is a whitelist — eight field names, five operations, a bounded step
 count — so there is no string that becomes SQL and no string that becomes
 code. A plan naming a field that does not exist fails the Zod union before the
@@ -531,7 +531,7 @@ To rebuild the dataset from scratch: `pipeline/extract.py` → `spatial.py` →
 
 `analyze.py` writes `build/block_groups.manifest.json` next to the table it
 produces — row count, byte size, columns, SHA-256 — and `load_postgis.py`
-verifies it before opening a transaction. The table is a build artefact kept in
+verifies it before opening a transaction. The table is a build artifact kept in
 source control, which is a thing worth being deliberate about; the manifest is
 what makes regenerating it a reviewable diff rather than "binary file
 modified", and what catches a truncated file before it becomes a half-loaded

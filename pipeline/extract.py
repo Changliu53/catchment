@@ -1,5 +1,5 @@
 """
-Stage 1 of the pipeline: raw files -> one normalised GeoDataFrame.
+Stage 1 of the pipeline: raw files -> one normalized GeoDataFrame.
 
 Reads the TIGER/Line block-group shapefile and the ACS JSON response, keeps
 Harris County, joins them on GEOID, and writes an intermediate file. No spatial
@@ -26,7 +26,7 @@ import pandas as pd
 
 # Geographic CRS for storage and web rendering; projected CRS for measurement.
 CRS_STORAGE = 4326
-CRS_MEASURE = 32615  # WGS84 / UTM zone 15N, metres. Covers -96 to -90; Houston is -95.37.
+CRS_MEASURE = 32615  # WGS84 / UTM zone 15N, meters. Covers -96 to -90; Houston is -95.37.
 
 STATE_FIPS = "48"
 COUNTY_FIPS = "201"

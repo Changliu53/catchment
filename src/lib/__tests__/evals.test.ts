@@ -30,7 +30,7 @@ describe('the corpus', () => {
   });
 
   it('is at least a quarter refusals', () => {
-    // A corpus of answerable questions measures willingness, not judgement.
+    // A corpus of answerable questions measures willingness, not judgment.
     // The interesting failure of this system is a confident wrong answer, and
     // only a decline case can catch one.
     const declines = CASES.filter((c) => c.expect.outcome === 'decline');
@@ -104,7 +104,7 @@ describe('the grader', () => {
   });
 
   it('fails a plan with the right shape and the wrong number', () => {
-    // "A kilometre" answered as 1 metre. Passes the schema, passes the
+    // "A kilometer" answered as 1 meter. Passes the schema, passes the
     // semantic validator, returns nothing.
     const g = grade(
       byId('far-from-park'),

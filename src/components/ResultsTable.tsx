@@ -18,7 +18,7 @@
  *   - a crawler indexes the actual findings rather than an empty canvas
  *
  * It is collapsed by default because it sits beneath an answer that already
- * summarises it, and because 200 rows above the fold would bury everything
+ * summarizes it, and because 200 rows above the fold would bury everything
  * else. `<details>` rather than a toggle with state: no JavaScript, and the
  * browser handles the keyboard interaction correctly without help.
  *

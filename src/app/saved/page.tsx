@@ -30,7 +30,7 @@ export const metadata = { title: 'Saved analyses — Catchment' };
  */
 export const dynamic = 'force-dynamic';
 
-const when = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium' });
+const when = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' });
 
 export default async function Saved({
   searchParams,

@@ -4,7 +4,7 @@
  * Every per-block-group number — population, median income, flood share,
  * distance to a supermarket — lived behind `mousemove`. A touch device has no
  * hover, so on a phone none of it was reachable: the map rendered, it was
- * correctly coloured, and it answered no questions. Tapping a polygon produced
+ * correctly colored, and it answered no questions. Tapping a polygon produced
  * nothing at all, which a desktop test suite has no way of noticing.
  *
  * The legend had the same shape of problem in a different direction: the full
@@ -29,7 +29,7 @@ async function open(page: Page) {
  * Screen coordinates of a point that really is inside a drawn block group.
  *
  * Not the mean of a ring: a census block group is not convex — they wrap
- * bayous and follow street grids — so the centre of its vertices is regularly
+ * bayous and follow street grids — so the center of its vertices is regularly
  * outside it, and a tap there hits the basemap. This asks the map what is
  * under a grid of candidate points and takes the first that is over a result.
  */

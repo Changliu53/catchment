@@ -2,7 +2,7 @@
  * Preset questions. Each one ships with the analysis plan it resolves to, so
  * clicking a preset costs nothing: no model call, no API key, no rate limit.
  *
- * This is the demo's first line of cost defence, and it is also why a stranger
+ * This is the demo's first line of cost defense, and it is also why a stranger
  * can open the page and get a real answer in under thirty seconds without
  * typing anything.
  *
@@ -24,9 +24,9 @@ export interface Preset {
 export const PRESETS: Preset[] = [
   {
     id: 'flooded-grocery-deserts',
-    question: 'Which flood-exposed neighbourhoods have no supermarket within a kilometre?',
+    question: 'Which flood-exposed neighborhoods have no supermarket within a kilometer?',
     reading:
-      'Block groups with over half their area in the 100-year floodplain whose centre is more than 1 km from the nearest supermarket, ranked by population.',
+      'Block groups with over half their area in the 100-year floodplain whose center is more than 1 km from the nearest supermarket, ranked by population.',
     plan: {
       title: 'Flood exposure and grocery access',
       pipeline: [
@@ -42,7 +42,7 @@ export const PRESETS: Preset[] = [
     id: 'worst-park-access',
     question: 'Where is park access worst relative to how many people live there?',
     reading:
-      'The 50 densest block groups whose centre is farthest from a park. Density matters: a long walk affects more people where more people live.',
+      'The 50 densest block groups whose center is farthest from a park. Density matters: a long walk affects more people where more people live.',
     plan: {
       title: 'Park access in dense areas',
       pipeline: [
@@ -68,7 +68,7 @@ export const PRESETS: Preset[] = [
   },
   {
     id: 'most-exposed-population',
-    question: 'Which neighbourhoods have the most people living in the floodplain?',
+    question: 'Which neighborhoods have the most people living in the floodplain?',
     reading: 'Block groups at least 80% inside the 100-year floodplain, ranked by population.',
     plan: {
       title: 'Population in the floodplain',
@@ -96,7 +96,7 @@ export const PRESETS: Preset[] = [
   },
   {
     id: 'low-income-flooded',
-    question: 'Which low-income neighbourhoods are most flood-exposed?',
+    question: 'Which low-income neighborhoods are most flood-exposed?',
     reading:
       'Block groups with median household income under $40,000 and at least half their area in the floodplain. Areas where income was suppressed by the Census are excluded, not counted as low-income.',
     plan: {
@@ -128,7 +128,7 @@ export const PRESETS: Preset[] = [
   },
   {
     id: 'densest',
-    question: 'Where do the most people live per square kilometre?',
+    question: 'Where do the most people live per square kilometer?',
     reading: 'The 50 densest block groups in the county.',
     plan: {
       title: 'Population density',
@@ -141,7 +141,7 @@ export const PRESETS: Preset[] = [
 
 /** A question the system deliberately cannot answer, used as a few-shot example. */
 export const UNSUPPORTED_EXAMPLE = {
-  question: 'Which neighbourhoods have the longest commute to downtown?',
+  question: 'Which neighborhoods have the longest commute to downtown?',
   response: {
     unsupported: true as const,
     reason:

@@ -38,7 +38,7 @@ describe('presets', () => {
     for (const preset of PRESETS) {
       expect(preset.question.trim().length, preset.id).toBeGreaterThan(10);
       // The reading is what appears under the map. A preset without one leaves
-      // a reader to infer what they are looking at from the colours.
+      // a reader to infer what they are looking at from the colors.
       expect(preset.reading.trim().length, preset.id).toBeGreaterThan(20);
       expect(ids.has(preset.id), `duplicate preset id "${preset.id}"`).toBe(false);
       ids.add(preset.id);
@@ -50,12 +50,12 @@ describe('presets', () => {
     for (const preset of PRESETS) expect(PRESET_BY_ID.get(preset.id)).toBe(preset);
   });
 
-  it('colours by a field the plan actually produces', () => {
+  it('colors by a field the plan actually produces', () => {
     for (const preset of PRESETS) {
       const colorBy = preset.plan.color_by;
       if (!colorBy) continue;
       // A `color_by` naming a field the executor never emits leaves the map
-      // grey with a legend that explains nothing.
+      // gray with a legend that explains nothing.
       const verdict = validatePlan(preset.plan);
       expect(verdict.ok, preset.id).toBe(true);
     }

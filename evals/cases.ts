@@ -17,11 +17,11 @@
  *
  * So the expectations here are mostly about the second kind. Several cases
  * exist only to catch a specific near-miss: `flood_pct` where the question
- * said the 500-year zone, metres where the question said kilometres, a
+ * said the 500-year zone, meters where the question said kilometers, a
  * straight-line distance offered as an answer to a question about driving.
  *
  * Expectations are structural rather than exact. Many different plans answer
- * "the poorest flood-exposed neighbourhoods" correctly — step order varies,
+ * "the poorest flood-exposed neighborhoods" correctly — step order varies,
  * `n` varies, the title is free text — and an exact-match corpus would fail on
  * differences that are not mistakes, which is how an eval suite gets switched
  * off.
@@ -81,7 +81,7 @@ export const CASES: EvalCase[] = [
   // ---------------------------------------------------------------- basic --
   {
     id: 'flood-half',
-    question: 'Which neighbourhoods are more than half in the floodplain?',
+    question: 'Which neighborhoods are more than half in the floodplain?',
     tag: 'basic',
     expect: {
       outcome: 'plan',
@@ -112,7 +112,7 @@ export const CASES: EvalCase[] = [
   },
   {
     id: 'densest',
-    question: 'Where do the most people live per square kilometre?',
+    question: 'Where do the most people live per square kilometer?',
     tag: 'basic',
     expect: {
       outcome: 'plan',
@@ -129,7 +129,7 @@ export const CASES: EvalCase[] = [
   },
   {
     id: 'far-from-park',
-    question: 'Which areas have no park within a kilometre?',
+    question: 'Which areas have no park within a kilometer?',
     tag: 'basic',
     expect: {
       outcome: 'plan',
@@ -138,7 +138,7 @@ export const CASES: EvalCase[] = [
         const s = step(p, 'resource_gap');
         if (s?.op !== 'resource_gap') return 'no resource_gap step';
         if (s.poi_type !== 'park') return `poi_type should be park, got ${s.poi_type}`;
-        return s.max_distance_m === 1000 ? null : `a kilometre is 1000 m, got ${s.max_distance_m}`;
+        return s.max_distance_m === 1000 ? null : `a kilometer is 1000 m, got ${s.max_distance_m}`;
       },
     },
   },
@@ -185,7 +185,7 @@ export const CASES: EvalCase[] = [
   {
     id: 'flood-and-grocery',
     question:
-      'Which flood-exposed neighbourhoods have no supermarket within a kilometre, ' +
+      'Which flood-exposed neighborhoods have no supermarket within a kilometer, ' +
       'and which of those are the most populated?',
     tag: 'multi-step',
     expect: {
@@ -271,7 +271,7 @@ export const CASES: EvalCase[] = [
   },
   {
     id: 'park-500m',
-    question: 'Which areas are more than 500 metres from a park?',
+    question: 'Which areas are more than 500 meters from a park?',
     tag: 'units',
     expect: {
       outcome: 'plan',
@@ -279,7 +279,7 @@ export const CASES: EvalCase[] = [
       also: (p) => {
         const s = step(p, 'resource_gap');
         if (s?.op !== 'resource_gap') return 'no resource_gap step';
-        return s.max_distance_m === 500 ? null : `already metres, got ${s.max_distance_m}`;
+        return s.max_distance_m === 500 ? null : `already meters, got ${s.max_distance_m}`;
       },
     },
   },
@@ -319,7 +319,7 @@ export const CASES: EvalCase[] = [
   // ------------------------------------------------------------- near-miss --
   {
     id: 'five-hundred-year',
-    question: 'Which neighbourhoods are in the 500-year flood zone?',
+    question: 'Which neighborhoods are in the 500-year flood zone?',
     tag: 'near-miss',
     expect: {
       outcome: 'plan',
@@ -351,7 +351,7 @@ export const CASES: EvalCase[] = [
   },
   {
     id: 'richest',
-    question: 'Show the wealthiest neighbourhoods.',
+    question: 'Show the wealthiest neighborhoods.',
     tag: 'near-miss',
     expect: {
       outcome: 'plan',
@@ -383,7 +383,7 @@ export const CASES: EvalCase[] = [
   // --------------------------------------------------------------- decline --
   {
     id: 'commute-time',
-    question: 'Which neighbourhoods have the longest commute to downtown?',
+    question: 'Which neighborhoods have the longest commute to downtown?',
     tag: 'decline',
     expect: {
       outcome: 'decline',
@@ -412,7 +412,7 @@ export const CASES: EvalCase[] = [
   },
   {
     id: 'crime',
-    question: 'Show me the crime rate by neighbourhood.',
+    question: 'Show me the crime rate by neighborhood.',
     tag: 'decline',
     expect: { outcome: 'decline', because: 'there is no crime data' },
   },
@@ -442,7 +442,7 @@ export const CASES: EvalCase[] = [
   },
   {
     id: 'rent',
-    question: 'Show me the neighbourhoods with the highest rents.',
+    question: 'Show me the neighborhoods with the highest rents.',
     tag: 'decline',
     expect: {
       outcome: 'decline',

@@ -3,7 +3,7 @@
  *
  * The prompt and the tool schema are generated from `schema.ts` so they cannot
  * drift from what the executor supports. That is the design; this is the check
- * that the generation still reaches every field, because a generated artefact
+ * that the generation still reaches every field, because a generated artifact
  * that quietly stops including something looks exactly like one that never had
  * it.
  *
@@ -15,7 +15,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { ANALYSE_TOOL, DECLINE_TOOL, systemPrompt } from '@/lib/orchestrate';
+import { ANALYZE_TOOL, DECLINE_TOOL, systemPrompt } from '@/lib/orchestrate';
 import { COMPARISON_OPS, FIELD_NAMES, MAX_PIPELINE_STEPS, PRIMITIVE_OPS } from '@/lib/schema';
 
 const prompt = systemPrompt();
@@ -25,7 +25,7 @@ describe('the prompt', () => {
     for (const field of FIELD_NAMES) {
       expect(prompt).toContain(field);
       // Not just the name: a field listed without its unit is a field the
-      // model will guess the unit of, and `max_distance_m` in kilometres is a
+      // model will guess the unit of, and `max_distance_m` in kilometers is a
       // plan that validates and means something else.
       const line = prompt.split('\n').find((l) => l.startsWith(`- ${field} (`));
       expect(line, `no dictionary line for ${field}`).toBeDefined();
@@ -68,12 +68,12 @@ describe('the prompt', () => {
   });
 
   it('says which floodplain flood_exposure means', () => {
-    // Found by the evaluation, not by reading. The catalogue said "in a
+    // Found by the evaluation, not by reading. The catalog said "in a
     // floodplain" and the op is hard-wired to flood_pct, so a question about
     // the 500-year zone got a 100-year answer — which validates, draws, and
     // understates exposure, the one error this dataset is most likely to be
     // quoted for. A rule elsewhere in the prompt already distinguished the two
-    // fields; it did not help, because the ambiguity was in the op catalogue.
+    // fields; it did not help, because the ambiguity was in the op catalog.
     const line = prompt.split('\n').find((l) => l.startsWith('- flood_exposure('))!;
     expect(line).toContain('flood_pct');
     expect(line).toContain('flood_pct_500');
@@ -89,7 +89,7 @@ describe('the prompt', () => {
 });
 
 describe('the tool schema', () => {
-  const step = ANALYSE_TOOL.input_schema.properties.pipeline.items;
+  const step = ANALYZE_TOOL.input_schema.properties.pipeline.items;
 
   it('bounds the vocabulary to exactly what the executor accepts', () => {
     expect([...step.properties.op.enum].sort()).toEqual([...PRIMITIVE_OPS].sort());
@@ -103,19 +103,19 @@ describe('the tool schema', () => {
       step.properties.field.enum,
       step.properties.measure.enum,
       step.properties.split_on.enum,
-      ANALYSE_TOOL.input_schema.properties.color_by.enum,
+      ANALYZE_TOOL.input_schema.properties.color_by.enum,
     ];
     for (const e of enums) expect([...e].sort()).toEqual([...FIELD_NAMES].sort());
   });
 
   it('caps the pipeline at the same ceiling as the prompt and the validator', () => {
-    expect(ANALYSE_TOOL.input_schema.properties.pipeline.maxItems).toBe(MAX_PIPELINE_STEPS);
+    expect(ANALYZE_TOOL.input_schema.properties.pipeline.maxItems).toBe(MAX_PIPELINE_STEPS);
   });
 
   it('gives declining its own tool rather than a variant to be noticed', () => {
     // A union inside one tool makes refusing a branch the model has to choose
     // against; a separate tool makes it a thing it can simply call.
-    expect(DECLINE_TOOL.name).not.toBe(ANALYSE_TOOL.name);
+    expect(DECLINE_TOOL.name).not.toBe(ANALYZE_TOOL.name);
     expect(DECLINE_TOOL.input_schema.required).toEqual(['reason', 'suggestion']);
   });
 

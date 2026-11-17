@@ -4,7 +4,7 @@ import './globals.css';
 
 const TITLE = 'Catchment — flood exposure and service access in Harris County';
 const DESCRIPTION =
-  'Ask in plain English which Harris County neighbourhoods sit in the floodplain and lack nearby services. A language model writes the analysis plan; a fixed executor runs it over census and FEMA data.';
+  'Ask in plain English which Harris County neighborhoods sit in the floodplain and lack nearby services. A language model writes the analysis plan; a fixed executor runs it over census and FEMA data.';
 
 /**
  * Absolute base for the social-card URL.

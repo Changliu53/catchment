@@ -31,7 +31,7 @@ describe('countyPath', () => {
     }
   });
 
-  it('touches the edge on the axis that ran out, and is centred on the other', () => {
+  it('touches the edge on the axis that ran out, and is centered on the other', () => {
     const { d, width, height } = countyPath(360, 360);
     const points = coordinates(d);
 
@@ -44,7 +44,7 @@ describe('countyPath', () => {
     expect(Math.max(...ys) - Math.min(...ys)).toBeCloseTo(height, 0);
     expect(Math.max(width, height)).toBeCloseTo(360, 0);
 
-    // Centred: the slack is the same on both sides.
+    // Centered: the slack is the same on both sides.
     expect(Math.min(...xs)).toBeCloseTo(360 - Math.max(...xs), 0);
     expect(Math.min(...ys)).toBeCloseTo(360 - Math.max(...ys), 0);
   });

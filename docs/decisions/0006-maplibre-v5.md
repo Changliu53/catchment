@@ -7,7 +7,7 @@
 The map rendered nothing in production and everything in development.
 
 Every check that could be run from outside passed. The container had a size.
-The sources were present. The layers were present, and on top. The colour
+The sources were present. The layers were present, and on top. The color
 expression was correct. No error was thrown, and the only trace anywhere was a
 single console line about a module script served with the wrong MIME type.
 
@@ -17,7 +17,7 @@ build, so the worker request fell back to the document root and came back as
 the 404 page — HTML, served as HTML, to something expecting a module script.
 
 That worker is what turns GeoJSON into renderable tiles. Without it the map is
-a correctly configured, fully initialised, completely empty canvas.
+a correctly configured, fully initialized, completely empty canvas.
 
 `next dev` served the worker without complaint, which is why this reached
 production: the failure does not exist in the development server.

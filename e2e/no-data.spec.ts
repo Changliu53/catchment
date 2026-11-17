@@ -5,12 +5,12 @@
  * small — 273 of Harris County's 2,830 block groups, and 42 of the 400 in the
  * test fixture. The map used to shade by `['to-number', ['get', field], 0]`,
  * which turned every one of those into a zero: the lightest blue, shown as the
- * poorest neighbourhoods in the county. The page computed its class breaks the
+ * poorest neighborhoods in the county. The page computed its class breaks the
  * same way, so those zeros also pulled every quantile boundary downward and
  * the error reached rows whose data was fine.
  *
  * It is the kind of defect that never throws and never looks wrong. These
- * tests hold the three places it has to be handled: the colour, the
+ * tests hold the three places it has to be handled: the color, the
  * classification, and the legend that explains both.
  */
 
@@ -47,7 +47,7 @@ test('the legend accounts for what it could not shade', async ({ page }) => {
   const count = await noData.count();
 
   if (count > 0) {
-    // Grey on a map with no entry explaining it is worse than no grey at all.
+    // Gray on a map with no entry explaining it is worse than no gray at all.
     await expect(legend).toContainText(/suppresses estimates/i);
     const shown = Number((await noData.innerText()).match(/(\d+)\s*$/)?.[1]);
     expect(shown).toBeGreaterThan(0);

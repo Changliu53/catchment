@@ -25,7 +25,7 @@ import { useEffect, useRef } from 'react';
 //
 // That worker is what turns GeoJSON into renderable tiles, so losing it made
 // the map draw nothing while every other check passed — sources present,
-// layers present and on top, colour expression correct, no thrown errors. The
+// layers present and on top, color expression correct, no thrown errors. The
 // only visible trace was one console line about a module script with the wrong
 // MIME type. v5's UMD build inlines the worker as a Blob: nothing to resolve,
 // nothing to 404.
@@ -179,7 +179,7 @@ export default function MapView({ features, colorBy, breaks, split, onHover, onS
         m.setFilter('results-split', splitFilter(sp.field, sp.threshold) as never);
       }
 
-      // A comparison covers the whole county, so every polygon has a neighbour
+      // A comparison covers the whole county, so every polygon has a neighbor
       // and the dots mark nothing. The outline softens for the same reason:
       // 2,830 outlined shapes read as a mesh laid over the map.
       m.setLayoutProperty('results-dots', 'visibility', sp ? 'none' : 'visible');

@@ -142,8 +142,8 @@ describe('the dot layer', () => {
   });
 });
 
-describe('initial colours', () => {
-  it('starts every shaded layer on one flat ramp colour', () => {
+describe('initial colors', () => {
+  it('starts every shaded layer on one flat ramp color', () => {
     // `paint` replaces these the moment there is something to shade. Before
     // that there are no breaks, and a ramp applied to no classification is a
     // map of noise that reads as meaning.
@@ -151,10 +151,10 @@ describe('initial colours', () => {
     expect(layer('results-dots').paint!['circle-color']).toBe(RAMP[1]);
   });
 
-  it('does not use the no-data grey as a starting colour', () => {
+  it('does not use the no-data gray as a starting color', () => {
     // It means "not measured" in the legend; using it as a default would make
     // the first paint claim the county has no data.
-    const colours = JSON.stringify(LAYERS);
-    expect(colours).not.toContain(NO_DATA);
+    const colors = JSON.stringify(LAYERS);
+    expect(colors).not.toContain(NO_DATA);
   });
 });

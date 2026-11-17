@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { formatValue, labelFor, NO_VALUE, unitFor } from '@/lib/format';
+import { formatValue, labelFor, NO_VALUE } from '@/lib/format';
 import { FIELDS } from '@/lib/schema';
 
 describe('every field is presentable', () => {
@@ -20,7 +20,7 @@ describe('every field is presentable', () => {
   it.each(Object.keys(FIELDS))('%s has a label, a unit and a format', (field) => {
     expect(labelFor(field)).not.toBe(field);
     expect(labelFor(field).length).toBeGreaterThan(3);
-    expect(unitFor(field)).toBeTruthy();
+    expect(FIELDS[field as keyof typeof FIELDS].unit).toBeTruthy();
     expect(formatValue(field, 1)).not.toBe('');
   });
 });
@@ -50,13 +50,13 @@ describe('units', () => {
     expect(formatValue('flood_pct_500', 0.123)).toBe('12.3%');
   });
 
-  it('switches metres to kilometres where metres stop being readable', () => {
+  it('switches meters to kilometers where meters stop being readable', () => {
     expect(formatValue('dist_grocery_m', 800)).toBe('800 m');
     expect(formatValue('dist_grocery_m', 1000)).toBe('1 km');
     expect(formatValue('dist_park_m', 2500)).toBe('2.5 km');
   });
 
-  it('reads an area in square kilometres, not square metres', () => {
+  it('reads an area in square kilometers, not square meters', () => {
     expect(formatValue('area_m2', 2_500_000)).toBe('2.5 km²');
   });
 
@@ -70,6 +70,5 @@ describe('a field the dictionary has never heard of', () => {
   it('still renders rather than throwing inside a table cell', () => {
     expect(formatValue('invented_field', 1234)).toBe('1,234');
     expect(labelFor('invented_field')).toBe('invented_field');
-    expect(unitFor('invented_field')).toBeNull();
   });
 });

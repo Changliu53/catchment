@@ -6,7 +6,7 @@
  *  1. Measurement uses `geom` transformed to EPSG:32615. `geom_simple` is
  *     returned to the browser for drawing and is never measured against.
  *  2. Nothing here interpolates user input into SQL. The executor filters rows
- *     in TypeScript over a fully materialised dataset; these queries take no
+ *     in TypeScript over a fully materialized dataset; these queries take no
  *     parameters from the request at all.
  *
  * The dataset is 2,830 rows and changes only when the pipeline is re-run, so
@@ -97,7 +97,7 @@ async function fetchAll(): Promise<BlockGroupFeature[]> {
   })) as BlockGroupFeature[];
 }
 
-/** Memoised for the life of the server instance. */
+/** Memoized for the life of the server instance. */
 export function loadBlockGroups(): Promise<BlockGroupFeature[]> {
   cache ??= fetchAll().catch((err) => {
     cache = null; // let the next request retry rather than caching the failure
