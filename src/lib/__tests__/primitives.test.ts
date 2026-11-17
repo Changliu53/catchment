@@ -147,6 +147,17 @@ describe('qualifying', () => {
     expect(ids(r.qualifying)).toEqual(['A', 'B', 'E']);
   });
 
+  it('does not treat a rank followed by a filter as a closing top n', () => {
+    const r = execute(
+      plan([
+        { op: 'rank', measure: 'pop', dir: 'desc', n: 3 },
+        { op: 'flood_exposure', min_pct: 0.5 },
+      ]),
+      FIXTURE_ROWS,
+    );
+    expect(r.qualifying).toEqual(r.rows);
+  });
+
   it('is the result itself when there is no rank step', () => {
     const r = execute(plan([{ op: 'flood_exposure', min_pct: 0.5 }]), FIXTURE_ROWS);
     expect(r.qualifying).toEqual(r.rows);

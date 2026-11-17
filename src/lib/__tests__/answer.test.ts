@@ -36,6 +36,7 @@ const { answerFor, MAX_QUESTION_LENGTH } = await import('@/lib/answer');
 const { planCache } = await import('@/lib/cache');
 const { checkRateLimit, resetRateLimit } = await import('@/lib/rate-limit');
 const { OrchestrationError } = await import('@/lib/orchestrate');
+const { FIELD_NAMES } = await import('@/lib/schema');
 
 /** A plan the real validator accepts, so only the routing is under test. */
 const GOOD_PLAN = {
@@ -67,6 +68,16 @@ describe('presets', () => {
     expect(result.source).toBe('preset');
     expect(result.features.length).toBeGreaterThan(0);
     expect(planFromQuestion).not.toHaveBeenCalled();
+  });
+
+  it('send every field a plan can shade by', async () => {
+    // The map and the table read from these properties, so a field missing
+    // here is drawn as "No data" however good the plan was.
+    const result = await answerFor({ presetId: 'densest', clientKey: 'visitor' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const sent = Object.keys(result.features[0]?.properties ?? {});
+    for (const field of FIELD_NAMES) expect(sent).toContain(field);
   });
 
   it('cost the visitor nothing from their hourly allowance', async () => {
@@ -120,7 +131,7 @@ describe('the model tier', () => {
     expect(first.ok && first.source).toBe('model');
 
     // Different capitals, extra spaces, different trailing punctuation — the
-    // same question as far as a person is concerned, and normalisation is what
+    // same question as far as a person is concerned, and normalization is what
     // makes the cache worth having.
     const second = await answerFor({
       question: '  Which areas hold the MOST people  ',
@@ -219,7 +230,7 @@ describe('when the model fails', () => {
 
   it('relays a decline as the model’s own reason', async () => {
     // `decline` is its own tool, and its payload is a first-class shape the
-    // validator recognises rather than a plan that failed.
+    // validator recognizes rather than a plan that failed.
     planFromQuestion.mockResolvedValue({
       unsupported: true,
       reason: 'This dataset has no travel-time information.',

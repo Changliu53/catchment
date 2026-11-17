@@ -23,7 +23,7 @@ import { countyTotals, loadBlockGroups, type BlockGroupFeature } from './db';
 import { execute } from './primitives';
 import { PRESET_BY_ID } from './presets';
 import { checkRateLimit } from './rate-limit';
-import { planCache, normaliseQuestion } from './cache';
+import { planCache, normalizeQuestion } from './cache';
 import { OrchestrationError, planFromQuestion } from './orchestrate';
 import { validatePlan, type Plan } from './validate';
 import type { FieldName } from './schema';
@@ -104,7 +104,7 @@ async function run(plan: Plan, source: Answer['source'], reading?: string): Prom
   // carries the geometry that went in.
   const result = execute(plan, rows);
   const matched = result.rows;
-  const rankStep = plan.pipeline.find((s) => s.op === 'rank');
+  const rankStep = plan.pipeline.at(-1);
   const cut = result.qualifying.length > matched.length;
 
   return {
@@ -131,6 +131,10 @@ async function run(plan: Plan, source: Answer['source'], reading?: string): Prom
         pop: r.pop,
         median_income: r.median_income,
         income_topcoded: r.income_topcoded,
+        // Every field a plan may shade or rank by has to be here. area_m2 was
+        // missing, so "the largest block groups by area" drew twenty gray
+        // shapes under a legend reading "No data 20".
+        area_m2: r.area_m2,
         pop_density: r.pop_density,
         flood_pct: r.flood_pct,
         flood_pct_500: r.flood_pct_500,
@@ -180,7 +184,7 @@ export async function answerFor({ presetId, question, clientKey }: Ask): Promise
   }
 
   // --- cache: a repeated question never costs twice ---------------------
-  const key = normaliseQuestion(asked);
+  const key = normalizeQuestion(asked);
   const cached = planCache.get(key);
   if (cached) return run(cached, 'cache');
 
