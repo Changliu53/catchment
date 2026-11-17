@@ -79,8 +79,11 @@ answerable question — and asserted to reject each one. The discrimination was
 checked by breaking the grader on purpose and watching eight of those tests go
 red, which is the only way to know an assertion is doing work.
 
-The live run belongs on a schedule and on demand, where a drop in the score is
-information rather than a blocked deploy.
+The live run is on demand, from the `eval` workflow in GitHub Actions or
+locally. It used to be weekly as well, but the repository had no API key, so
+every Monday it skipped and reported green. A run is about 30 short Haiku
+calls; it belongs after a change to the prompt, the schema or the model, where
+a drop in the score is information rather than a blocked deploy.
 
 ## Files
 

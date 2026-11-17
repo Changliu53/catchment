@@ -17,7 +17,7 @@
  *
  * What runs on every push is `src/lib/__tests__/evals.test.ts`, which checks
  * that the corpus is well-formed and that the grader discriminates. The live
- * run belongs on a schedule and on demand, where a drop in the score is
+ * run is started by hand, where a drop in the score is
  * information rather than a blocked deploy.
  */
 

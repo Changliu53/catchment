@@ -342,7 +342,7 @@ table already exists fails there rather than in production.
   offline on every push, including against deliberately wrong plans, because an
   eval suite scoring 100% on a broken grader looks exactly like one scoring
   100% on a working model. [`evals/README.md`](evals/README.md) covers what is
-  measured and why the live run is weekly rather than per-push.
+  measured and why the live run is on demand rather than per-push.
 
 The signed-in server creates its session the way the server would — a row in
 `session`, and a cookie signed with the same secret — because real GitHub OAuth
@@ -474,8 +474,8 @@ question said `$40,000`, parks for a question about food deserts. A plan that
 fails validation shows the visitor an error; a plan that validates and answers
 a different question gets drawn, captioned and shared.
 
-The live run needs an API key and is on a weekly schedule rather than on every
-push — [`evals/README.md`](evals/README.md) has the reasoning, and the part
+The live run needs an API key and is started by hand, from the `eval` workflow
+or `npm run eval`, rather than on every push — [`evals/README.md`](evals/README.md) has the reasoning, and the part
 that does run on every push is the part that checks the grader still
 discriminates.
 
