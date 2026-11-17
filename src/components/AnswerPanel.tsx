@@ -158,7 +158,7 @@ function Comparison({ c }: { c: NonNullable<Answer['comparison']> }) {
               <td className="py-1 pr-2 text-[11px] text-slate-700">{r.label}</td>
               <td className="pl-3 text-right tabular-nums">{fmt.format(r.s.n)}</td>
               <td className="pl-3 text-right tabular-nums">{v(r.s.median)}</td>
-              <td className="pl-3 text-right whitespace-nowrap tabular-nums text-slate-500">
+              <td className="pl-3 text-right tabular-nums text-slate-500">
                 {v(r.s.p25)}–{v(r.s.p75)}
               </td>
             </tr>
