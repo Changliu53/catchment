@@ -83,7 +83,7 @@ function Headline({ answer }: { answer: Answer }) {
 }
 
 export default function AnswerPanel({ answer }: { answer: Answer }) {
-  const { plan, trace, totals, comparison } = answer;
+  const { plan, trace, comparison } = answer;
 
   return (
     <section className="flex flex-col gap-3 rounded-md border border-slate-200 bg-slate-50 p-3">
