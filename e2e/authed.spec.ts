@@ -48,6 +48,18 @@ const db = new Pool({ connectionString: E2E_DATABASE_URL ?? undefined });
  */
 const SHARE_ROUTE_TIMEOUT = 20_000;
 
+/**
+ * One worker for this file, tests in order.
+ *
+ * Every test here signs in as the same seeded user, and the hooks below create
+ * and delete that user. With `fullyParallel` each test got its own worker and
+ * its own copy of those hooks, so one worker finishing deleted the user (and,
+ * by cascade, the session and saved rows) out from under a test still running
+ * in another. That was the flake: the rename step redirected home as signed
+ * out, and "Name updated." never appeared.
+ */
+test.describe.configure({ mode: 'default' });
+
 test.beforeAll(async () => {
   // Start from nothing: the cascade on `user` takes any saved rows with it,
   // which also means a previous run cannot leave a row that makes this one
@@ -157,7 +169,7 @@ test('save, share, rename, delete', async ({ page }) => {
   const listed = page.locator('li', { hasText: 'Grocery deserts to revisit' });
   await expect(listed).toBeVisible();
   // The question, not the URL parameters.
-  await expect(listed).toContainText('Which flood-exposed neighbourhoods have no supermarket');
+  await expect(listed).toContainText('Which flood-exposed neighborhoods have no supermarket');
   await expect(listed).not.toContainText('%20');
 
   // --- rename ------------------------------------------------------------
