@@ -82,7 +82,9 @@ test('the statistics are server-rendered, not drawn by the map', async ({ page }
   await openPreset(page, PRESETS.income);
 
   // The map gained a job here; it did not take the table's.
-  await expect(page.getByText('flood_pct ≥ 0.5')).toBeVisible();
-  await expect(page.getByText('flood_pct < 0.5')).toBeVisible();
+  // Labelled in words and the field's own unit, not as a column name and a
+  // fraction: the rows used to read "flood_pct ≥ 0.5".
+  await expect(page.getByText('Area in the 100-year floodplain ≥ 50%')).toBeVisible();
+  await expect(page.getByText('Area in the 100-year floodplain < 50%')).toBeVisible();
   await expect(page.getByText(/Medians, not means/i)).toBeVisible();
 });
