@@ -147,18 +147,18 @@ function Comparison({ c }: { c: NonNullable<Answer['comparison']> }) {
         <thead>
           <tr className="text-left text-slate-500">
             <th className="font-medium">Group</th>
-            <th className="text-right font-medium">n</th>
-            <th className="text-right font-medium">Median</th>
-            <th className="text-right font-medium">p25–p75</th>
+            <th className="pl-3 text-right font-medium">n</th>
+            <th className="pl-3 text-right font-medium">Median</th>
+            <th className="pl-3 text-right font-medium">p25–p75</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((r) => (
             <tr key={r.label} className="border-t border-slate-100">
               <td className="py-1 pr-2 text-[11px] text-slate-700">{r.label}</td>
-              <td className="text-right tabular-nums">{fmt.format(r.s.n)}</td>
-              <td className="text-right tabular-nums">{v(r.s.median)}</td>
-              <td className="text-right tabular-nums text-slate-500">
+              <td className="pl-3 text-right tabular-nums">{fmt.format(r.s.n)}</td>
+              <td className="pl-3 text-right tabular-nums">{v(r.s.median)}</td>
+              <td className="pl-3 text-right whitespace-nowrap tabular-nums text-slate-500">
                 {v(r.s.p25)}–{v(r.s.p75)}
               </td>
             </tr>
